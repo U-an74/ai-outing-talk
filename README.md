@@ -60,6 +60,16 @@ ai-outing-talk/
 
 ## 5. 설치 및 실행 방법
 
+### Frontend
+- VS Code Live Server 확장 프로그램 사용
+- `frontend/index.html` 실행
+
+### Backend
+- 가상환경 활성화
+- 패키지 설치
+- FastAPI 서버 실행
+
+
 ## 6. 사용자 테스트 결과
 
 ## 7. 링크
