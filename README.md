@@ -12,6 +12,8 @@
 
 ```text
 ai-outing-talk/
+├── automation/
+│
 ├── backend/
 │   ├── app/
 │   │   ├── config.py
@@ -20,9 +22,16 @@ ai-outing-talk/
 │   │   ├── routers/
 │   │   ├── schemas/
 │   │   └── services/
+│   ├── tests/
+│   │   ├── test_firestore_read.py
+│   │   └── test_firestore_write.py
 │   ├── .env
 │   ├── .env.example
 │   └── requirements.txt
+│
+├── docs/
+│   ├── project_proposal.md
+│   └── functional_requirements.md
 │
 ├── frontend/
 │   ├── css/
@@ -30,12 +39,6 @@ ai-outing-talk/
 │   ├── js/
 │   │   └── main.js
 │   └── index.html
-│
-├── automation/
-│
-├── docs/
-│   ├── project_proposal.md
-│   └── functional_requirements.md
 │
 ├── .gitignore
 └── README.md
