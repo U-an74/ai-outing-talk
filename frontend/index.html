@@ -6,10 +6,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 외출톡</title>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <h1>AI 외출톡</h1>
-    <p>외출 알림 서비스 개발 테스트 페이지입니다.</p>
+    <header class="header">
+        <h1 class="logo">AI 외출톡</h1>
+        <button id="logout-btn" class="text-btn hidden">로그아웃</button>
+    </header>
+
+    <main class="container">
+
+        <!-- 1. 개인정보 동의 -->
+        <section id="consent-view" class="view">
+            <h2>개인정보 수집 동의</h2>
+            <div class="box">
+                <dl class="terms">
+                    <dt>수집 항목</dt>
+                    <dd>로그인 식별 정보, 입력한 출발지와 도착지, 알림 시각</dd>
+                    <dt>이용 목적</dt>
+                    <dd>외출 알림 생성과 발송</dd>
+                    <dt>보관 기간</dt>
+                    <dd>서비스 제공에 필요한 최소한의 기간</dd>
+                </dl>
+            </div>
+            <div class="box notice">
+                <p>출발 시각, 준비물, 알림 문구는 AI가 생성합니다. 실제 상황과 다를 수 있으니 참고용으로 사용해 주세요.</p>
+            </div>
+            <label class="check">
+                <input type="checkbox" id="consent-check">
+                <span>위 내용에 동의합니다.</span>
+            </label>
+            <button id="consent-btn" class="primary-btn" disabled>동의하고 시작하기</button>
+        </section>
+
+        <!-- 2. 로그인 -->
+        <section id="login-view" class="view hidden">
+            <h2>로그인</h2>
+            <p class="desc">알림을 받을 카카오 계정으로 로그인해 주세요.</p>
+            <button id="login-btn" class="primary-btn">카카오 계정으로 로그인</button>
+            <p id="login-status" class="status"></p>
+        </section>
+
+        <!-- 3. 알림 등록 -->
+        <section id="create-view" class="view hidden">
+            <h2>외출 알림 등록</h2>
+            <p class="desc">어디로 언제까지 가는지 한 문장으로 적어 주세요.</p>
+            <form id="create-form">
+                <textarea id="plan-input" rows="3" placeholder="예) 내일 오전 9시까지 회사에 가야 해"></textarea>
+                <button type="submit" class="primary-btn">알림 만들기</button>
+            </form>
+            <p id="create-status" class="status"></p>
+            <button id="go-list" class="text-btn">내 알림 보기</button>
+        </section>
+
+        <!-- 4. 알림 목록 -->
+        <section id="list-view" class="view hidden">
+            <h2>내 알림</h2>
+            <ul id="alert-list" class="alert-list"></ul>
+            <p id="list-empty" class="status"></p>
+            <button id="go-create" class="primary-btn">새 알림 등록</button>
+        </section>
+
+    </main>
+
+    <footer class="footer">
+        <p>알림 문구는 AI가 생성합니다.</p>
+    </footer>
 
     <script src="js/main.js"></script>
 </body>
