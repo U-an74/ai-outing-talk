@@ -120,3 +120,26 @@ async def send_kakao_message(access_token: str, message: str):
         response.raise_for_status()
 
         return response.json()
+
+async def get_kakao_user_info(access_token: str):
+    """
+    카카오 Access Token으로 사용자 정보 조회
+    """
+
+    if not access_token:
+        raise ValueError("Access Token이 전달되지 않았습니다.")
+
+    KAKAO_USER_INFO_URL = "https://kapi.kakao.com/v2/user/me"
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            KAKAO_USER_INFO_URL,
+            headers={
+                "Authorization": f"Bearer {access_token}"
+            },
+        )
+
+        response.raise_for_status()
+
+        return response.json()
+    

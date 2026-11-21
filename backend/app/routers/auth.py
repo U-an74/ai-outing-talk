@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import RedirectResponse
 
 from app.config import KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI
-from app.services.kakao import get_kakao_token
+from app.services.kakao import get_kakao_token, get_kakao_user_info
+from app.services.user import save_kakao_user
 
 
 router = APIRouter()
@@ -63,6 +64,13 @@ async def kakao_callback(
 
     try:
         token_data = await get_kakao_token(code)
+        user_info = await get_kakao_user_info(
+            token_data["access_token"]
+        )
+        save_kakao_user(
+            kakao_user_id=user_info["id"],
+            token_data=token_data,
+        )
 
     except Exception as e:
         raise HTTPException(
@@ -73,6 +81,7 @@ async def kakao_callback(
     # 실제 토큰 값은 응답에 노출하지 않음
     return {
         "message": "카카오 토큰 발급 성공",
+        "kakao_user_id": user_info.get("id"),
         "token_type": token_data.get("token_type"),
         "expires_in": token_data.get("expires_in"),
         "refresh_token_expires_in": token_data.get(
