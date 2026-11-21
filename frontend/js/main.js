@@ -56,33 +56,25 @@ consentBtn.addEventListener("click", function () {
     showView("login");
 });
 
-// 2. 로그인
+// 2. 로그인 (카카오 OAuth 페이지로 이동)
 document.getElementById("login-btn").addEventListener("click", function () {
-    const status = document.getElementById("login-status");
-    status.textContent = "로그인 중입니다.";
-
-    fetch(API_BASE + "/api/auth/login", { method: "POST" })
-        .then(function (res) {
-            if (!res.ok) {
-                throw new Error("login failed");
-            }
-            return res.json();
-        })
-        .then(function (data) {
-            setStored("user_id", data.user_id || "guest");
-            status.textContent = "";
-            showView("create");
-        })
-        .catch(function () {
-            // TODO: 로그인 API 연동 후 아래 임시 처리 삭제
-            status.textContent = "로그인 API 준비 전이라 화면 확인용으로 진행합니다.";
-            setStored("user_id", "test-user");
-            setTimeout(function () {
-                status.textContent = "";
-                showView("create");
-            }, 1200);
-        });
+    document.getElementById("login-status").textContent = "카카오 로그인 페이지로 이동합니다.";
+    window.location.href = API_BASE + "/api/auth/kakao/login";
 });
+
+// 로그인 후 돌아왔을 때 주소에서 사용자 정보 읽기
+// TODO: 백엔드가 전달하는 파라미터 이름 확인 후 맞출 것
+function handleLoginCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const userId = params.get("user_id");
+
+    if (!userId) {
+        return;
+    }
+
+    setStored("user_id", userId);
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
 
 logoutBtn.addEventListener("click", function () {
     removeStored("user_id");
@@ -207,6 +199,8 @@ function formatTime(value) {
 }
 
 // 시작 화면 결정
+handleLoginCallback();
+
 if (getStored("consent") !== "agreed") {
     showView("consent");
 } else if (!getStored("user_id")) {
