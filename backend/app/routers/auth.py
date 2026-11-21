@@ -2,12 +2,16 @@
 
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
-from app.config import KAKAO_REST_API_KEY, KAKAO_REDIRECT_URI
+from app.config import (
+    KAKAO_REST_API_KEY,
+    KAKAO_REDIRECT_URI,
+)
 from app.services.kakao import get_kakao_token, get_kakao_user_info
 from app.services.user import save_kakao_user
+from app.services.session import create_session_token, SESSION_MAX_AGE
 
 
 router = APIRouter()
@@ -42,6 +46,7 @@ async def kakao_login():
 
 @router.get("/callback")
 async def kakao_callback(
+    response: Response,
     code: str | None = None,
     error: str | None = None,
     error_description: str | None = None,
@@ -79,15 +84,23 @@ async def kakao_callback(
         )
 
     # 실제 토큰 값은 응답에 노출하지 않음
+    session_token = create_session_token(
+        str(user_info["id"])
+    )
+
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=SESSION_MAX_AGE,
+        path="/",
+    )
+
     return {
-        "message": "카카오 토큰 발급 성공",
+        "message": "카카오 로그인 및 서비스 인증 성공",
         "kakao_user_id": user_info.get("id"),
-        "token_type": token_data.get("token_type"),
-        "expires_in": token_data.get("expires_in"),
-        "refresh_token_expires_in": token_data.get(
-            "refresh_token_expires_in"
-        ),
-        "scope": token_data.get("scope"),
         "has_access_token": bool(token_data.get("access_token")),
         "has_refresh_token": bool(token_data.get("refresh_token")),
     }
