@@ -2,9 +2,8 @@
 
 > 외출 계획이나 받고 싶은 알림을 평소 말하듯 한 문장으로 입력하면, AI가 내용을 해석하고 날씨와 이동 시간을 확인해 알맞은 시각에 카카오톡으로 알려주는 서비스
 
-- 배포 URL: [Render 배포 주소]
-- 발표 자료: [링크]
-- 시연 영상: [링크]
+- 배포 URL: https://ai-outing-talk.onrender.com
+- 과제 요구사항 충족 현황: [11장](#11-과제-요구사항-충족-현황)
 
 <br>
 
@@ -53,6 +52,13 @@
 | [이름] | Automation / AI | n8n 운영 환경 및 예약 발송 워크플로우, 날씨·이동 시간 조회, AI 자연어 해석·알림 문구 생성, 백엔드 통합, 배포 |
 | [이름] | [역할] | [담당 업무] |
 
+### 협업 방식
+- **브랜치 전략**: `main`(제출용) ← `develop`(통합) ← `feature/*`(기능별). 모든 변경은 PR로 develop에 머지
+- **코드 리뷰**: PR 단위로 변경 내용과 테스트 방법을 기록하고 리뷰 후 머지
+- **진행 공유**: 디스코드 포럼에 날짜별 완료·예정 작업을 기록하고, 담당이 비는 작업은 재배정
+- **인터페이스 합의**: 백엔드와 n8n 사이 API 경로, 데이터 형식, 예외 처리 규칙을 먼저 합의한 뒤 각자 구현
+- 날짜별 진행 기록과 의사결정은 [docs/progress_log.md](docs/progress_log.md)에 정리했습니다.
+
 <br>
 
 ## 3. 기술 스택
@@ -81,6 +87,9 @@
 ## 4. 핵심 AI 활용
 
 과제 필수 기술 요소 중 **AI Agent**와 **자동화 워크플로우**를 사용합니다.
+기술 요소별 상세 근거, 프롬프트 설계, 적용하지 않은 기술과 이유는 [docs/tech_elements.md](docs/tech_elements.md)에 정리했습니다.
+
+![AI Agent 흐름](docs/images/agent_flow.png)
 
 | 기술 요소 | 적용 위치 | 설명 |
 |---|---|---|
@@ -95,31 +104,31 @@
 5. 백엔드가 LLM으로 상황에 맞는 문구를 생성해 카카오톡으로 보낸다.
 6. 반복 알림은 다음 발송 시각으로 옮긴다.
 
+### 자동화 워크플로우 (n8n)
+
+![자동화 워크플로우](docs/images/automation_workflow.png)
+
 ### 프롬프트 설계
 - **해석 프롬프트**: 현재 시각과 요일을 함께 넘겨 "내일", "금요일" 같은 표현을 실제 날짜로 바꾼다. 출력은 정해진 JSON 형식만 허용하고, 알 수 없는 값은 지어내지 않고 `null`로 두게 한다.
 - **문구 프롬프트**: 주어진 날씨·이동 시간만 사용하고 2~3문장, 120자 이내로 쓰게 한다. 강수확률 50% 이상이면 우산, 5도 이하면 따뜻한 옷을 권하도록 규칙을 정했다.
 - **실패 대비**: LLM 응답이 실패하면 정해진 형식의 기본 문구로 발송해 알림이 빠지지 않게 했다.
 
+### 적용하지 않은 기술과 이유
+| 기술 | 이유 |
+|---|---|
+| RAG | 필요한 정보(날씨, 이동 시간, 장소)가 문서 지식이 아니라 실시간 데이터라, 문서 검색 대신 실시간 API를 Agent의 도구로 사용 |
+| 멀티모달 AI | 입력은 문장, 출력은 카카오톡 텍스트라 이미지·음성 처리가 필요 없음 |
+| Long-term Memory | 대화형 서비스가 아니라 이전 대화 맥락이 필요 없음. 알림 설정과 발송 이력은 Firestore에 저장 |
+
 <br>
 
 ## 5. 시스템 아키텍처
 
-```mermaid
-flowchart LR
-    U[사용자] -->|문장 입력| R
-    subgraph R[Render]
-        FE[Frontend<br/>HTML/CSS/JS]
-        BE[Backend<br/>FastAPI]
-    end
-    BE -->|로그인| KA[Kakao OAuth]
-    BE -->|해석·문구 생성| LLM[LLM API]
-    BE -->|장소 좌표| KL[Kakao Local]
-    BE <-->|토큰·알림 저장| DB[(Firestore)]
-    N8N[n8n Cloud<br/>10분마다] -->|due / dispatch| BE
-    N8N -->|날씨| W[Open-Meteo]
-    N8N -->|이동 시간| KM[Kakao Mobility]
-    BE -->|나에게 보내기| KT[KakaoTalk]
-```
+![시스템 아키텍처](docs/images/architecture.png)
+
+- 프론트와 백엔드는 Render 한 서비스에서 제공합니다.
+- n8n Cloud가 10분마다 백엔드 내부 API를 호출해 발송 대상을 확인합니다.
+- 카카오 토큰은 Firestore, API 키는 Render 환경변수, Firebase 키는 Secret File로 관리합니다.
 
 <br>
 
@@ -157,7 +166,10 @@ ai-outing-talk/
 │   ├── project_proposal.md          # 기획서
 │   ├── functional_requirements.md   # 기능 요구 명세서
 │   ├── feedback_log.md              # 사용자 피드백 기록
-│   └── deployment_guide.md          # 배포 및 연동 가이드, 데이터 형식
+│   ├── deployment_guide.md          # 배포 및 연동 가이드, 데이터 형식
+│   ├── tech_elements.md             # 기술 요소 및 AI 활용 명세
+│   ├── progress_log.md              # 날짜별 진행 기록, 의사결정
+│   └── images/                      # 아키텍처, Agent, 워크플로우 다이어그램
 ├── frontend/
 │   ├── css/style.css
 │   ├── js/main.js
@@ -246,7 +258,27 @@ Render 설정, Firebase 키 업로드, 카카오 콘솔 설정, n8n 연결은 [d
 <br>
 
 ## 10. 링크
-- 배포 URL: [Render 배포 주소]
-- 발표 자료: [링크]
-- 시연 영상: [링크]
-- 문서: [기획서](docs/project_proposal.md) · [기능 요구 명세서](docs/functional_requirements.md) · [배포 가이드](docs/deployment_guide.md) · [피드백 기록](docs/feedback_log.md)
+- 배포 URL: https://ai-outing-talk.onrender.com
+- 문서: [기획서](docs/project_proposal.md) · [기능 요구 명세서](docs/functional_requirements.md) · [기술 요소 명세](docs/tech_elements.md) · [진행 기록](docs/progress_log.md) · [배포 가이드](docs/deployment_guide.md) · [피드백 기록](docs/feedback_log.md)
+
+<br>
+
+## 11. 과제 요구사항 충족 현황
+
+| 과제 요구사항 | 충족 내용 | 위치 |
+|---|---|---|
+| 생성형 AI 또는 AI Agent가 핵심 기능 | 자연어 해석과 알림 문구 생성이 없으면 서비스가 동작하지 않음 | [4장](#4-핵심-ai-활용), `backend/app/services/llm.py` |
+| 필수 기술 요소 2개 이상 | AI Agent, 자동화 워크플로우 | [tech_elements.md](docs/tech_elements.md) |
+| 프롬프트·RAG·메모리 적용 근거 | 프롬프트 설계 이유, RAG·메모리 미적용 이유 | [4장](#4-핵심-ai-활용), [tech_elements.md](docs/tech_elements.md) |
+| 노코드 자동화 + Python | n8n Cloud + FastAPI | `automation/`, `backend/` |
+| 문제 정의 | 1장 문제 정의, 기획서 | [1장](#1-프로젝트-소개), [기획서](docs/project_proposal.md) |
+| 기능·비기능 요구사항 | 기능 요구 명세서 | [functional_requirements.md](docs/functional_requirements.md) |
+| 서비스 아키텍처 설계·문서화 | 아키텍처 다이어그램, API 목록, 데이터 형식 | [5장](#5-시스템-아키텍처), [배포 가이드](docs/deployment_guide.md) |
+| 기술 스택 선정 이유 | 3장 표와 기술적 의사결정 | [3장](#3-기술-스택) |
+| 외부 접근 가능한 배포 | Render 배포 | https://ai-outing-talk.onrender.com |
+| 실사용자 5명 이상 피드백·반영 | 테스트 기록과 반영 내용 | [8장](#8-사용자-테스트-결과), [feedback_log.md](docs/feedback_log.md) |
+| 팀원 역할 분담과 협업 과정 | 2장 역할, 협업 방식, 진행 기록 | [2장](#2-팀원-역할), [progress_log.md](docs/progress_log.md) |
+| 진행 과정 문서화 | 날짜별 완료 작업, 의사결정, 문제 해결 | [progress_log.md](docs/progress_log.md) |
+| Git 버전 관리 | 기능 브랜치와 PR 기반 머지 기록 | GitHub Pull requests |
+| AI 생성 콘텐츠 명시 | 메시지 끝 "(AI가 작성한 메시지)", 화면 표시 | [9장](#9-ai-윤리-및-개인정보) |
+| 개인정보 동의·안전 관리 | 동의 화면, 토큰 비노출, 비밀 값 분리 보관 | [9장](#9-ai-윤리-및-개인정보) |

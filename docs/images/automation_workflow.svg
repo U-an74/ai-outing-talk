@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" font-family="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+  <rect width="1280" height="600" fill="#FFFFFF"/>
+  <text x="40" y="52" font-size="26" font-weight="700" fill="#1A1A1A">자동화 워크플로우 (n8n Cloud, 10분마다 실행)</text>
+  <text x="40" y="84" font-size="16" fill="#4A4A4A">n8n은 "언제 보낼지"와 외부 정보 조회를 맡고, 토큰 관리와 발송은 백엔드 내부 API가 처리한다</text>
+
+  <defs>
+    <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#3F5873"/>
+    </marker>
+  </defs>
+
+  <!-- Row 1 -->
+  <g font-size="15">
+    <rect x="40" y="120" width="200" height="92" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+    <text x="58" y="150" font-weight="700" fill="#1A1A1A">Every 10 Minutes</text>
+    <text x="58" y="174" font-size="13" fill="#4A4A4A">스케줄 트리거</text>
+    <text x="58" y="194" font-size="13" fill="#4A4A4A">하루 144회</text>
+
+    <rect x="280" y="120" width="200" height="92" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+    <text x="298" y="150" font-weight="700" fill="#1A1A1A">Config</text>
+    <text x="298" y="174" font-size="13" fill="#4A4A4A">배포 주소, 내부 API 키,</text>
+    <text x="298" y="194" font-size="13" fill="#4A4A4A">카카오 키</text>
+
+    <rect x="520" y="120" width="200" height="92" rx="12" fill="#E7EDF4" stroke="#3F5873" stroke-width="2"/>
+    <text x="538" y="150" font-weight="700" fill="#1A1A1A">Get Due Alerts</text>
+    <text x="538" y="174" font-size="13" fill="#4A4A4A">GET /api/internal/</text>
+    <text x="538" y="194" font-size="13" fill="#4A4A4A">alerts/due</text>
+
+    <rect x="760" y="120" width="200" height="92" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+    <text x="778" y="150" font-weight="700" fill="#1A1A1A">Split Alerts</text>
+    <text x="778" y="174" font-size="13" fill="#4A4A4A">알림 목록을</text>
+    <text x="778" y="194" font-size="13" fill="#4A4A4A">한 건씩 나누기</text>
+
+    <rect x="1000" y="120" width="240" height="92" rx="12" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="1018" y="150" font-weight="700" fill="#1A1A1A">Get Weather</text>
+    <text x="1018" y="174" font-size="13" fill="#4A4A4A">Open-Meteo</text>
+    <text x="1018" y="194" font-size="13" fill="#4A4A4A">기온, 시간대별 강수확률</text>
+  </g>
+  <g stroke="#3F5873" stroke-width="2.5" marker-end="url(#ar)">
+    <line x1="240" y1="166" x2="272" y2="166"/>
+    <line x1="480" y1="166" x2="512" y2="166"/>
+    <line x1="720" y1="166" x2="752" y2="166"/>
+    <line x1="960" y1="166" x2="992" y2="166"/>
+  </g>
+
+  <!-- snake down -->
+  <path d="M1120 212 L1120 256 L1120 280" stroke="#3F5873" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+
+  <!-- Row 2 (right to left) -->
+  <g font-size="15">
+    <rect x="1000" y="290" width="240" height="92" rx="12" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="1018" y="320" font-weight="700" fill="#1A1A1A">Get Travel Time</text>
+    <text x="1018" y="344" font-size="13" fill="#4A4A4A">카카오모빌리티 길찾기</text>
+    <text x="1018" y="364" font-size="13" fill="#4A4A4A">실패해도 다음 단계 진행</text>
+
+    <rect x="720" y="290" width="240" height="92" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+    <text x="738" y="320" font-weight="700" fill="#1A1A1A">Decide (Code)</text>
+    <text x="738" y="344" font-size="13" fill="#4A4A4A">조건 비교 {type, op, value}</text>
+    <text x="738" y="364" font-size="13" fill="#4A4A4A">출발 권장 시각 계산</text>
+
+    <rect x="480" y="290" width="200" height="92" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+    <text x="498" y="320" font-weight="700" fill="#1A1A1A">Should Send?</text>
+    <text x="498" y="344" font-size="13" fill="#4A4A4A">조건 충족 +</text>
+    <text x="498" y="364" font-size="13" fill="#4A4A4A">발송 시점 도달</text>
+  </g>
+  <g stroke="#3F5873" stroke-width="2.5" marker-end="url(#ar)">
+    <line x1="1000" y1="336" x2="968" y2="336"/>
+    <line x1="720" y1="336" x2="688" y2="336"/>
+  </g>
+
+  <!-- branches -->
+  <g font-size="15">
+    <rect x="40" y="250" width="380" height="104" rx="12" fill="#E7EDF4" stroke="#3F5873" stroke-width="2"/>
+    <text x="58" y="280" font-weight="700" fill="#1A1A1A">Dispatch</text>
+    <text x="58" y="304" font-size="13" fill="#4A4A4A">POST /api/internal/alerts/{id}/dispatch</text>
+    <text x="58" y="324" font-size="13" fill="#4A4A4A">백엔드: AI 문구 생성 → 토큰 갱신 → 카카오톡 발송</text>
+    <text x="58" y="344" font-size="13" fill="#4A4A4A">→ 결과 기록 (반복이면 다음 시각으로)</text>
+
+    <rect x="40" y="388" width="380" height="76" rx="12" fill="#F4F6F8" stroke="#9AA6B2" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="58" y="418" font-weight="700" fill="#1A1A1A">Wait Next Cycle</text>
+    <text x="58" y="442" font-size="13" fill="#4A4A4A">조건 미충족, 출발 전 → 10분 뒤 다시 확인</text>
+  </g>
+  <path d="M480 326 L452 326 L452 302 L428 302" stroke="#3F5873" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+  <text x="440" y="292" font-size="13" font-weight="700" fill="#1F7A3A">true</text>
+  <path d="M480 350 L452 350 L452 426 L428 426" stroke="#9AA6B2" stroke-width="2.5" fill="none" marker-end="url(#ar)"/>
+  <text x="436" y="446" font-size="13" font-weight="700" fill="#8A2B2B">false</text>
+
+  <!-- legend / notes -->
+  <rect x="40" y="500" width="1200" height="72" rx="12" fill="#FAFAFA" stroke="#E2E2E2"/>
+  <rect x="60" y="518" width="16" height="16" rx="3" fill="#E7EDF4" stroke="#3F5873"/>
+  <text x="84" y="531" font-size="14" fill="#4A4A4A">백엔드 내부 API (X-Internal-Key 인증)</text>
+  <rect x="390" y="518" width="16" height="16" rx="3" fill="#FFF7C2" stroke="#E0C800"/>
+  <text x="414" y="531" font-size="14" fill="#4A4A4A">외부 API</text>
+  <text x="520" y="531" font-size="14" fill="#4A4A4A">HTTP 노드 재시도 3회, 타임아웃 90초 (Render 무료 서버 대기 대비)</text>
+  <text x="60" y="558" font-size="14" fill="#4A4A4A">중복 발송 방지: 백엔드가 트랜잭션으로 알림을 선점(sending)한 뒤 발송, 이미 보낸 알림은 already_sent / not_due로 응답</text>
+</svg>
