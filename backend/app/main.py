@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.firebase import db #Firestore 연결 테스트용
 from app.routers import auth
+from app.routers import alerts
 
 app = FastAPI()
 
@@ -14,10 +15,18 @@ app.include_router(
     tags=["Kakao Auth"]
 )
 
+# 외출 알림 라우터 등록
+app.include_router(
+    alerts.router,
+    prefix="/api/alerts",
+    tags=["Alerts"]
+)
+
 # CORS 설정
-# 우선 로컬 개발용 주소만 허용한 상태, 차후 Vercel 배포 주소 추가 요망
+# 로컬 개발용 주소 허용, 추후 Vercel 배포 주소 추가 필요
 origins = [
     "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ]
 
 app.add_middleware(
