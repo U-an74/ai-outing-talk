@@ -1,7 +1,8 @@
 // 버튼 클릭, api 호출 등 동작 구현
 
-// 배포 시 Render 백엔드 주소로 변경
-const API_BASE = "http://127.0.0.1:8000";
+// 백엔드가 프론트를 함께 서빙하므로 같은 주소("")를 사용
+// Live Server(5500)로 따로 띄울 때만 아래 값을 "http://localhost:8000"으로 바꿔서 테스트
+const API_BASE = "";
 
 const views = {
     consent: document.getElementById("consent-view"),
@@ -35,12 +36,24 @@ function setStored(key, value) {
     }
 }
 
-function removeStored(key) {
-    try {
-        localStorage.removeItem(key);
-    } catch (e) {
-        return;
-    }
+// 로그인 쿠키를 함께 보내는 API 호출
+function api(path, options) {
+    const opts = Object.assign({ credentials: "include" }, options || {});
+    return fetch(API_BASE + path, opts);
+}
+
+// 서버 오류 메시지(detail)를 꺼내기
+function readError(res, fallback) {
+    return res.json()
+        .then(function (data) {
+            if (data && typeof data.detail === "string") {
+                return data.detail;
+            }
+            return fallback;
+        })
+        .catch(function () {
+            return fallback;
+        });
 }
 
 // 1. 개인정보 동의
@@ -62,31 +75,20 @@ document.getElementById("login-btn").addEventListener("click", function () {
     window.location.href = API_BASE + "/api/auth/kakao/login";
 });
 
-// 로그인 후 돌아왔을 때 주소에서 사용자 정보 읽기
-// TODO: 백엔드가 전달하는 파라미터 이름 확인 후 맞출 것
-function handleLoginCallback() {
-    const params = new URLSearchParams(window.location.search);
-    const userId = params.get("user_id");
-
-    if (!userId) {
-        return;
-    }
-
-    setStored("user_id", userId);
-    window.history.replaceState({}, document.title, window.location.pathname);
-}
-
 logoutBtn.addEventListener("click", function () {
-    removeStored("user_id");
-    showView("login");
+    api("/api/auth/kakao/logout", { method: "POST" })
+        .finally(function () {
+            showView("login");
+        });
 });
 
-// 3. 알림 등록
+// 3. 알림 등록 (자연어 한 문장 → AI 해석)
 document.getElementById("create-form").addEventListener("submit", function (e) {
     e.preventDefault();
 
     const input = document.getElementById("plan-input");
     const status = document.getElementById("create-status");
+    const submitBtn = e.target.querySelector("button[type=submit]");
     const text = input.value.trim();
 
     if (!text) {
@@ -95,23 +97,36 @@ document.getElementById("create-form").addEventListener("submit", function (e) {
     }
 
     status.textContent = "AI가 계획을 정리하고 있습니다.";
+    submitBtn.disabled = true;
 
-    fetch(API_BASE + "/api/alerts", {
+    api("/api/alerts/natural", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: getStored("user_id"), text: text })
+        body: JSON.stringify({ text: text })
     })
         .then(function (res) {
-            if (!res.ok) {
-                throw new Error("create failed");
+            if (res.status === 401) {
+                showView("login");
+                throw new Error("로그인이 필요합니다.");
             }
+            if (!res.ok) {
+                return readError(res, "알림을 등록하지 못했습니다.").then(function (msg) {
+                    throw new Error(msg);
+                });
+            }
+            return res.json();
+        })
+        .then(function () {
             input.value = "";
             status.textContent = "";
             loadAlerts();
             showView("list");
         })
-        .catch(function () {
-            status.textContent = "알림을 등록하지 못했습니다. 서버 연결을 확인해 주세요.";
+        .catch(function (err) {
+            status.textContent = err.message || "알림을 등록하지 못했습니다. 서버 연결을 확인해 주세요.";
+        })
+        .finally(function () {
+            submitBtn.disabled = false;
         });
 });
 
@@ -132,10 +147,12 @@ function loadAlerts() {
     listEl.innerHTML = "";
     emptyEl.textContent = "불러오는 중입니다.";
 
-    const userId = encodeURIComponent(getStored("user_id") || "");
-
-    fetch(API_BASE + "/api/alerts?user_id=" + userId)
+    api("/api/alerts")
         .then(function (res) {
+            if (res.status === 401) {
+                showView("login");
+                throw new Error("unauthorized");
+            }
             if (!res.ok) {
                 throw new Error("load failed");
             }
@@ -157,30 +174,102 @@ function loadAlerts() {
         });
 }
 
+const STATUS_LABELS = {
+    active: "대기 중",
+    sending: "발송 중",
+    sent: "발송 완료",
+    expired: "기간 만료"
+};
+
+function conditionText(condition) {
+    if (!condition || !condition.type) {
+        return "";
+    }
+    if (condition.type === "rain") {
+        return "비가 올 때만";
+    }
+    if (condition.type === "temp_below") {
+        return condition.value + "도 미만일 때만";
+    }
+    if (condition.type === "temp_above") {
+        return condition.value + "도 초과일 때만";
+    }
+    return "";
+}
+
 function renderAlert(item) {
     const li = document.createElement("li");
     li.className = "card";
+
+    const head = document.createElement("div");
+    head.className = "card-head";
 
     const route = document.createElement("p");
     route.className = "card-route";
     route.textContent = (item.departure || "출발지 미정") + " → " + (item.destination || "도착지 미정");
 
+    const statusBadge = document.createElement("span");
+    const statusKey = item.status || (item.sent ? "sent" : "active");
+    statusBadge.className = "status-badge status-" + statusKey;
+    statusBadge.textContent = STATUS_LABELS[statusKey] || statusKey;
+
+    head.appendChild(route);
+    head.appendChild(statusBadge);
+
     const time = document.createElement("p");
     time.className = "card-time";
-    time.textContent = "도착 " + formatTime(item.arrival_at) + " / 알림 " + formatTime(item.notify_at);
+    let timeText = "도착 " + formatTime(item.arrival_at);
+    if (item.notify_mode === "departure") {
+        timeText += " / 이동 시간에 맞춰 출발 알림";
+    } else {
+        timeText += " / 알림 " + formatTime(item.notify_at);
+    }
+    const cond = conditionText(item.condition);
+    if (cond) {
+        timeText += " (" + cond + ")";
+    }
+    time.textContent = timeText;
 
     const message = document.createElement("p");
     message.className = "card-message";
-    message.textContent = item.message || "알림 문구를 준비하고 있습니다.";
+    message.textContent = item.final_message || item.message || "알림 문구를 준비하고 있습니다.";
+
+    const foot = document.createElement("div");
+    foot.className = "card-foot";
 
     const badge = document.createElement("span");
     badge.className = "ai-badge";
-    badge.textContent = "AI 생성";
+    badge.textContent = item.final_message ? "AI 작성 메시지" : "AI 해석";
 
-    li.appendChild(route);
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "text-btn delete-btn";
+    del.textContent = "삭제";
+    del.setAttribute("aria-label", (item.destination || "알림") + " 알림 삭제");
+    del.addEventListener("click", function () {
+        if (!item.alert_id) {
+            return;
+        }
+        del.disabled = true;
+        api("/api/alerts/" + encodeURIComponent(item.alert_id), { method: "DELETE" })
+            .then(function (res) {
+                if (!res.ok) {
+                    throw new Error("delete failed");
+                }
+                li.remove();
+            })
+            .catch(function () {
+                del.disabled = false;
+            });
+    });
+
+    foot.appendChild(badge);
+    foot.appendChild(del);
+
+    li.appendChild(head);
     li.appendChild(time);
     li.appendChild(message);
-    li.appendChild(badge);
+    li.appendChild(foot);
 
     return li;
 }
@@ -199,12 +288,34 @@ function formatTime(value) {
 }
 
 // 시작 화면 결정
-handleLoginCallback();
+// 로그인 여부는 서버의 세션 쿠키로 확인 (/me)
+function start() {
+    const params = new URLSearchParams(window.location.search);
+    const loginResult = params.get("login");
+    if (loginResult) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
-if (getStored("consent") !== "agreed") {
-    showView("consent");
-} else if (!getStored("user_id")) {
-    showView("login");
-} else {
-    showView("create");
+    if (getStored("consent") !== "agreed") {
+        showView("consent");
+        return;
+    }
+
+    api("/api/auth/kakao/me")
+        .then(function (res) {
+            if (res.ok) {
+                showView("create");
+                return;
+            }
+            showView("login");
+            if (loginResult === "fail") {
+                document.getElementById("login-status").textContent = "로그인에 실패했습니다. 다시 시도해 주세요.";
+            }
+        })
+        .catch(function () {
+            showView("login");
+            document.getElementById("login-status").textContent = "서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        });
 }
+
+start();

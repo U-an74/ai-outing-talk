@@ -5,20 +5,31 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.firebase import db
+from app.services.timeutil import ensure_aware
 
 #Create
 def create_alert(user_id: str, alert_data: dict):
     """
     사용자별 외출 알림을 Firestore에 저장
+    시간대 없는 시각은 한국 시각으로 보정하고, 발송 상태 기본값을 넣는다.
     """
 
     alert_id = str(uuid4())
     now = datetime.now(timezone.utc)
 
+    for key in ("arrival_at", "notify_at"):
+        if isinstance(alert_data.get(key), datetime):
+            alert_data[key] = ensure_aware(alert_data[key])
+
     data = {
+        "notify_mode": "fixed",
+        "condition": None,
+        "buffer_minutes": 10,
         **alert_data,
         "alert_id": alert_id,
         "user_id": user_id,
+        "status": "active",
+        "sent": False,
         "created_at": now,
         "updated_at": now,
     }

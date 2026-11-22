@@ -50,9 +50,10 @@
         <!-- 3. 알림 등록 -->
         <section id="create-view" class="view hidden">
             <h2>외출 알림 등록</h2>
-            <p class="desc">어디로 언제까지 가는지 한 문장으로 적어 주세요.</p>
+            <p class="desc">어디서 어디로, 언제까지 가는지 한 문장으로 적어 주세요. 조건도 함께 쓸 수 있어요.</p>
             <form id="create-form">
-                <textarea id="plan-input" rows="3" placeholder="예) 내일 오전 9시까지 회사에 가야 해"></textarea>
+                <label for="plan-input" class="hidden">외출 계획</label>
+                <textarea id="plan-input" rows="3" placeholder="예) 내일 오후 2시까지 서울역에서 강남역 가야 해, 비 오면 알려줘"></textarea>
                 <button type="submit" class="primary-btn">알림 만들기</button>
             </form>
             <p id="create-status" class="status"></p>
