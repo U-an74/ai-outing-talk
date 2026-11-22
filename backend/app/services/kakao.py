@@ -79,9 +79,10 @@ async def refresh_kakao_token(refresh_token: str):
         return response.json()
 
 
-async def send_kakao_message(access_token: str, message: str):
+async def send_kakao_message(access_token: str, message: str, link_url: str | None = None):
     """
     카카오톡 나와의 채팅으로 메시지 발송
+    link_url: 메시지 버튼을 눌렀을 때 열 주소 (카카오 앱 설정의 사이트 도메인에 등록된 주소)
     """
 
     if not access_token:
@@ -90,12 +91,14 @@ async def send_kakao_message(access_token: str, message: str):
     if not message:
         raise ValueError("메시지 내용이 비어 있습니다.")
 
+    link = link_url if link_url and link_url.startswith("http") else "https://developers.kakao.com"
+
     template_object = {
         "object_type": "text",
         "text": message,
         "link": {
-            "web_url": "https://developers.kakao.com",
-            "mobile_web_url": "https://developers.kakao.com",
+            "web_url": link,
+            "mobile_web_url": link,
         },
         "button_title": "확인하기",
     }
