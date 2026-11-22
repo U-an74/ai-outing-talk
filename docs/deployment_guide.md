@@ -97,10 +97,48 @@ uvicorn app.main:app --reload --port 8000
 | GET | `/api/auth/kakao/callback` | - | 토큰 저장, 세션 쿠키 설정 후 `/?login=success`로 이동 |
 | GET | `/api/auth/kakao/me` | 쿠키 | 로그인 확인 |
 | POST | `/api/auth/kakao/logout` | - | 세션 쿠키 삭제 |
-| POST | `/api/alerts/natural` | 쿠키 | 자연어 한 문장으로 알림 등록 (AI 해석) |
+| POST | `/api/alerts/natural` | 쿠키 | 자연어 한 문장으로 알림 등록 (AI 해석, trip/reminder 자동 판단) |
 | POST | `/api/alerts` | 쿠키 | 항목을 직접 입력해 알림 등록 |
 | GET | `/api/alerts` | 쿠키 | 내 알림 목록 |
 | GET | `/api/alerts/{id}` | 쿠키 | 알림 상세 |
 | DELETE | `/api/alerts/{id}` | 쿠키 | 알림 삭제 |
 | GET | `/api/internal/alerts/due` | X-Internal-Key | 지금 확인할 알림 목록 (n8n) |
 | POST | `/api/internal/alerts/{id}/dispatch` | X-Internal-Key | AI 문구 생성 후 카카오톡 발송 (n8n) |
+
+## 6. 알림 데이터 형식 (Firestore `users/{user_id}/alerts/{alert_id}`)
+
+```json
+{
+  "alert_id": "uuid",
+  "user_id": "카카오 사용자 ID",
+  "kind": "reminder",
+  "notify_at": "2026-11-23T07:30:00+09:00",
+  "repeat": "daily",
+  "condition": { "type": "temperature", "op": "<", "value": 0 },
+  "message": "영하면 패딩 챙기라고 알려줘",
+  "location": { "lat": 37.5, "lon": 127.0, "place_name": "회사" },
+  "status": "active",
+  "sent": false
+}
+```
+
+| 필드 | 설명 |
+|---|---|
+| `kind` | `trip`(약속·외출 출발 알림) 또는 `reminder`(정해진 시각 알림) |
+| `notify_at` | 발송(확인) 시각. 반복 알림은 발송 후 다음 시각으로 바뀜 |
+| `repeat` | `none`, `daily`(매일), `weekdays`(평일) |
+| `condition` | 날씨 조건. `type`은 `temperature`(기온, 도) 또는 `precipitation`(강수확률, %) |
+| `location` | 날씨를 확인할 위치 좌표 (없으면 서울 기준) |
+| `status` | `active`, `sending`, `sent`, `expired` |
+| `sent` | 1회 알림이 발송되었는지 (반복 알림은 항상 false) |
+
+trip 알림은 위 필드에 더해 `departure`, `destination`, `arrival_at`, `notify_mode`(`departure`/`fixed`), `departure_coord`, `destination_coord`를 가집니다.
+
+### 입력 예시와 해석 결과
+
+| 입력 | kind | 해석 |
+|---|---|---|
+| 내일 오후 2시까지 서울역에서 강남역 가야 해 | trip | 도착 14:00, 이동 시간에 맞춰 출발 알림 |
+| 금요일 7시 홍대 약속, 비 오면 알려줘 | trip | 강수확률 50% 이상일 때만 출발 알림 |
+| 매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘 | reminder | 매일 07:30, 기온 < 0일 때 |
+| 평일마다 8시에 회사 날씨 알려줘 | reminder | 평일 08:00, 회사 위치 날씨, 조건 없음 |
