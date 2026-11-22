@@ -16,7 +16,7 @@ from app.services.alert import (
 from app.services.llm import LLMError, parse_outing_text
 from app.services.location import geocode
 from app.services.session import get_current_user_id
-from app.services.timeutil import now_kst
+from app.services.timeutil import first_occurrence, now_kst
 
 
 router = APIRouter()
@@ -32,7 +32,9 @@ async def register_natural_alert(
 ):
     """
     자연어 한 문장으로 외출 알림 등록 API
-    1) LLM이 문장을 출발지, 도착지, 도착 시각, 조건으로 해석
+    1) LLM이 문장을 해석해 알림 종류를 판단
+       - trip: 도착지·도착 시각 기준 출발 알림
+       - reminder: 정해진 시각 알림 (매일/평일 반복, 날씨 조건)
     2) 카카오 Local로 장소 좌표 검색
     3) Firestore에 저장
     """
@@ -47,53 +49,10 @@ async def register_natural_alert(
             detail="AI가 문장을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
         )
 
-    missing = []
-    if not parsed["destination"]:
-        missing.append("도착지")
-    if not parsed["arrival_at"]:
-        missing.append("도착 시각")
-    if missing:
-        raise HTTPException(
-            status_code=422,
-            detail=f"{', '.join(missing)}을(를) 알 수 없어요. 예) 내일 오전 9시까지 강남역에 가야 해",
-        )
-
-    arrival_at = parsed["arrival_at"]
-    if arrival_at <= now:
-        raise HTTPException(
-            status_code=422,
-            detail="도착 시각이 이미 지났어요. 앞으로의 일정을 입력해 주세요.",
-        )
-
-    # 사용자가 알림 시각을 직접 말했으면 그 시각에(fixed),
-    # 아니면 이동 시간으로 출발 시각을 계산해 알림(departure)
-    notify_at = parsed["notify_at"]
-    if notify_at and notify_at < arrival_at:
-        notify_mode = "fixed"
+    if parsed["kind"] == "reminder":
+        alert_data = await _build_reminder(parsed, body.text, now)
     else:
-        notify_mode = "departure"
-        notify_at = max(now, arrival_at - DEPARTURE_LOOKAHEAD)
-
-    departure_coord, destination_coord = await asyncio.gather(
-        geocode(parsed["departure"]),
-        geocode(parsed["destination"]),
-    )
-
-    alert_data = {
-        "departure": parsed["departure"],
-        "destination": parsed["destination"],
-        "arrival_at": arrival_at,
-        "notify_at": notify_at,
-        "notify_mode": notify_mode,
-        "condition": parsed["condition"],
-        "items_hint": parsed["items_hint"],
-        "message": parsed["message"],
-        "original_text": body.text,
-        "departure_coord": departure_coord,
-        "destination_coord": destination_coord,
-        "buffer_minutes": 10,
-        "ai_parsed": True,
-    }
+        alert_data = await _build_trip(parsed, body.text, now)
 
     try:
         saved = create_alert(user_id=user_id, alert_data=alert_data)
@@ -222,3 +181,100 @@ def remove_alert(
             status_code=500,
             detail="외출 알림 삭제에 실패했습니다.",
         )
+
+
+async def _build_trip(parsed: dict, text: str, now) -> dict:
+    """약속·외출 알림: 도착지와 도착 시각 기준으로 출발 알림"""
+
+    missing = []
+    if not parsed["destination"]:
+        missing.append("도착지")
+    if not parsed["arrival_at"]:
+        missing.append("도착 시각")
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{', '.join(missing)}을(를) 알 수 없어요. 예) 내일 오전 9시까지 강남역에 가야 해",
+        )
+
+    arrival_at = parsed["arrival_at"]
+    if arrival_at <= now:
+        raise HTTPException(
+            status_code=422,
+            detail="도착 시각이 이미 지났어요. 앞으로의 일정을 입력해 주세요.",
+        )
+
+    # 사용자가 알림 시각을 직접 말했으면 그 시각에(fixed),
+    # 아니면 이동 시간으로 출발 시각을 계산해 알림(departure)
+    notify_at = parsed["send_at"]
+    if notify_at and now < notify_at < arrival_at:
+        notify_mode = "fixed"
+    else:
+        notify_mode = "departure"
+        notify_at = max(now, arrival_at - DEPARTURE_LOOKAHEAD)
+
+    departure_coord, destination_coord = await asyncio.gather(
+        geocode(parsed["departure"]),
+        geocode(parsed["destination"]),
+    )
+
+    return {
+        "kind": "trip",
+        "departure": parsed["departure"],
+        "destination": parsed["destination"],
+        "arrival_at": arrival_at,
+        "notify_at": notify_at,
+        "notify_mode": notify_mode,
+        "repeat": "none",
+        "location": destination_coord,
+        "condition": parsed["condition"],
+        "items_hint": parsed["items_hint"],
+        "message": parsed["message"],
+        "original_text": text,
+        "departure_coord": departure_coord,
+        "destination_coord": destination_coord,
+        "buffer_minutes": 10,
+        "ai_parsed": True,
+    }
+
+
+async def _build_reminder(parsed: dict, text: str, now) -> dict:
+    """정해진 시각 알림: 반복(매일/평일)과 날씨 조건 지원"""
+
+    send_at = parsed["send_at"]
+    if not send_at:
+        raise HTTPException(
+            status_code=422,
+            detail="알림 받을 시각을 알 수 없어요. 예) 매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘",
+        )
+
+    repeat = parsed["repeat"]
+    if repeat == "none":
+        if send_at <= now:
+            raise HTTPException(
+                status_code=422,
+                detail="알림 시각이 이미 지났어요. 앞으로의 시각을 입력해 주세요.",
+            )
+    else:
+        send_at = first_occurrence(send_at, repeat, now)
+
+    location = await geocode(parsed["location"])
+
+    return {
+        "kind": "reminder",
+        "departure": None,
+        "destination": None,
+        "arrival_at": None,
+        "notify_at": send_at,
+        "notify_mode": "fixed",
+        "repeat": repeat,
+        "location": location,
+        "location_name": parsed["location"],
+        "condition": parsed["condition"],
+        "items_hint": parsed["items_hint"],
+        "message": parsed["message"],
+        "original_text": text,
+        "departure_coord": None,
+        "destination_coord": None,
+        "ai_parsed": True,
+    }

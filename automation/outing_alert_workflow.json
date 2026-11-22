@@ -2,7 +2,7 @@
   "name": "외출톡 예약 알림 자동 발송",
   "nodes": [
     {
-      "id": "4a8aac39-951c-4084-90eb-3a243f2c39c2",
+      "id": "0678e7c9-d0ed-4e64-bc24-0a1d06c5c439",
       "name": "Every 10 Minutes",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -22,7 +22,7 @@
       }
     },
     {
-      "id": "d0694f48-1416-4906-bd25-af5c7c57a2a4",
+      "id": "95561f7d-cc7e-4842-b609-d9b8798c048f",
       "name": "Config",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -35,19 +35,19 @@
         "assignments": {
           "assignments": [
             {
-              "id": "ee291d14-8e53-4554-bc55-a4b0b83130b7",
+              "id": "34b80059-e3e2-4da6-9504-90f4729f1649",
               "name": "base_url",
               "value": "https://YOUR-APP.onrender.com",
               "type": "string"
             },
             {
-              "id": "46d37dc9-8b4f-4281-8148-bcd562d5e1cb",
+              "id": "b31bb36d-c72a-4953-9779-bddcfc36c0a4",
               "name": "internal_api_key",
               "value": "YOUR_INTERNAL_API_KEY",
               "type": "string"
             },
             {
-              "id": "3642790d-16ab-4e75-a575-a43897d599c3",
+              "id": "d4b2b49c-d717-43d2-99c9-4259ec4a1681",
               "name": "kakao_rest_api_key",
               "value": "YOUR_KAKAO_REST_API_KEY",
               "type": "string"
@@ -58,7 +58,7 @@
       }
     },
     {
-      "id": "2d2a9a23-7d99-48f0-b935-6a97de5efaf6",
+      "id": "5d5b7983-7e5a-402f-8bca-424f9d65ff61",
       "name": "Get Due Alerts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -88,7 +88,7 @@
       }
     },
     {
-      "id": "a1b26aee-7188-40b8-aca2-f5e6338b61a5",
+      "id": "5a1d727b-fa99-43ef-8b88-695139148620",
       "name": "Split Alerts",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
@@ -102,7 +102,7 @@
       }
     },
     {
-      "id": "9c27ce2b-a500-4bf2-a651-207b4c85a3d4",
+      "id": "8981d196-bd08-4c9e-bf9a-6eba26a9ce82",
       "name": "Get Weather",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -114,7 +114,7 @@
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput",
-      "notes": "Open-Meteo (API 키 불필요). 도착지 좌표가 없으면 출발지, 둘 다 없으면 서울시청 기준",
+      "notes": "Open-Meteo (API 키 불필요). 알림 위치 → 도착지 → 출발지 순, 모두 없으면 서울시청 기준",
       "parameters": {
         "method": "GET",
         "url": "https://api.open-meteo.com/v1/forecast",
@@ -123,11 +123,11 @@
           "parameters": [
             {
               "name": "latitude",
-              "value": "={{ $('Split Alerts').item.json.destination_coord?.lat ?? $('Split Alerts').item.json.departure_coord?.lat ?? 37.5665 }}"
+              "value": "={{ $('Split Alerts').item.json.location?.lat ?? $('Split Alerts').item.json.destination_coord?.lat ?? $('Split Alerts').item.json.departure_coord?.lat ?? 37.5665 }}"
             },
             {
               "name": "longitude",
-              "value": "={{ $('Split Alerts').item.json.destination_coord?.lon ?? $('Split Alerts').item.json.departure_coord?.lon ?? 126.978 }}"
+              "value": "={{ $('Split Alerts').item.json.location?.lon ?? $('Split Alerts').item.json.destination_coord?.lon ?? $('Split Alerts').item.json.departure_coord?.lon ?? 126.978 }}"
             },
             {
               "name": "current",
@@ -153,7 +153,7 @@
       }
     },
     {
-      "id": "fd1f6163-e8e9-4456-9e4e-602ecec60eca",
+      "id": "5b0dc685-0dd3-4f59-8732-50c30b988cad",
       "name": "Get Travel Time",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -162,7 +162,7 @@
         300
       ],
       "onError": "continueRegularOutput",
-      "notes": "카카오모빌리티 자동차 길찾기. 좌표가 없으면 실패하고 다음 단계로 넘어감",
+      "notes": "카카오모빌리티 자동차 길찾기 (trip만 해당). 좌표가 없으면 실패하고 다음 단계로 넘어감",
       "parameters": {
         "method": "GET",
         "url": "https://apis-navi.kakaomobility.com/v1/directions",
@@ -198,7 +198,7 @@
       }
     },
     {
-      "id": "951e5571-2c86-469b-902d-60745fb97de9",
+      "id": "7e47167c-84e9-4be8-b007-cc0be8f50ab2",
       "name": "Decide",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -206,14 +206,14 @@
         1320,
         300
       ],
-      "notes": "조건(비/기온)과 출발 시각을 확인해 발송 여부 결정",
+      "notes": "조건(기온/강수, op 비교)과 출발 시각을 확인해 발송 여부 결정",
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// [Decide] 발송 여부 판단 (n8n Code 노드, Run Once for Each Item)\n// 입력: Split Alerts(알림), Get Weather(Open-Meteo), Get Travel Time(카카오모빌리티)\n// 출력: shouldSend, reason, dispatch 요청 본문\n\nfunction decide(alert, weatherRes, routeRes, nowDate) {\n  const now = nowDate || new Date();\n  const arrival = alert.arrival_at ? new Date(alert.arrival_at) : null;\n  const buffer = Number(alert.buffer_minutes || 10);\n\n  // 1) 날씨 정리\n  const WEATHER_CODES = [\n    [0, 0, '맑음'], [1, 3, '구름 조금~흐림'], [45, 48, '안개'],\n    [51, 57, '이슬비'], [61, 67, '비'], [71, 77, '눈'],\n    [80, 82, '소나기'], [85, 86, '눈 소나기'], [95, 99, '뇌우'],\n  ];\n  let weather = null;\n  if (weatherRes && weatherRes.current) {\n    const cur = weatherRes.current;\n    const code = cur.weather_code;\n    const found = WEATHER_CODES.find(([a, b]) => code >= a && code <= b);\n    // 지금부터 도착 시각까지 시간대별 강수확률 중 최댓값\n    let maxProb = null;\n    const hourly = weatherRes.hourly || {};\n    const times = hourly.time || [];\n    const probs = hourly.precipitation_probability || [];\n    const end = arrival || new Date(now.getTime() + 3 * 3600 * 1000);\n    for (let i = 0; i < times.length; i++) {\n      const t = new Date(times[i] + ':00+09:00');\n      if (t.getTime() >= now.getTime() - 3600 * 1000 && t.getTime() <= end.getTime()) {\n        if (probs[i] != null && (maxProb === null || probs[i] > maxProb)) maxProb = probs[i];\n      }\n    }\n    weather = {\n      temperature: cur.temperature_2m ?? null,\n      precipitation: cur.precipitation ?? null,\n      precipitation_probability: maxProb,\n      summary: found ? found[2] : null,\n    };\n  }\n\n  // 2) 이동 시간\n  let travelMinutes = null;\n  const route = routeRes && Array.isArray(routeRes.routes) ? routeRes.routes[0] : null;\n  if (route && route.result_code === 0 && route.summary && route.summary.duration != null) {\n    travelMinutes = Math.round(route.summary.duration / 60);\n  }\n  let leaveAt = null;\n  if (arrival && travelMinutes !== null) {\n    leaveAt = new Date(arrival.getTime() - (travelMinutes + buffer) * 60 * 1000);\n  }\n\n  // 3) 조건 확인 (조건이 있는데 날씨를 못 가져오면 다음 주기에 다시 확인)\n  let conditionOk = true;\n  let reason = '';\n  const cond = alert.condition;\n  if (cond && cond.type) {\n    if (!weather) {\n      conditionOk = false;\n      reason = '날씨 정보 없음';\n    } else if (cond.type === 'rain') {\n      const threshold = cond.value != null ? Number(cond.value) : 50;\n      conditionOk = (weather.precipitation_probability ?? 0) >= threshold || (weather.precipitation ?? 0) > 0;\n      if (!conditionOk) reason = '비 예보 없음';\n    } else if (cond.type === 'temp_below') {\n      conditionOk = weather.temperature !== null && weather.temperature < Number(cond.value ?? 0);\n      if (!conditionOk) reason = '기온 조건 미충족';\n    } else if (cond.type === 'temp_above') {\n      conditionOk = weather.temperature !== null && weather.temperature > Number(cond.value ?? 30);\n      if (!conditionOk) reason = '기온 조건 미충족';\n    }\n  }\n\n  // 4) 발송 시점 확인 (워크플로우가 10분마다 돌므로 출발 10분 전부터 발송)\n  let timeOk = true;\n  if (alert.notify_mode === 'departure') {\n    const LEAD_MS = 10 * 60 * 1000;\n    if (leaveAt) {\n      timeOk = now.getTime() >= leaveAt.getTime() - LEAD_MS;\n    } else if (arrival) {\n      // 이동 시간을 못 구하면 도착 60분 전에 발송\n      timeOk = now.getTime() >= arrival.getTime() - 60 * 60 * 1000;\n    }\n    if (!timeOk && !reason) reason = '아직 출발 시각 전';\n  }\n\n  return {\n    alert_id: alert.id,\n    user_id: alert.user_id,\n    shouldSend: conditionOk && timeOk,\n    reason: conditionOk && timeOk ? '발송' : reason,\n    leave_at: leaveAt ? leaveAt.toISOString() : null,\n    travel_minutes: travelMinutes,\n    weather,\n    payload: {\n      user_id: alert.user_id,\n      weather,\n      travel_minutes: travelMinutes,\n      leave_at: leaveAt ? leaveAt.toISOString() : null,\n    },\n  };\n}\n\n// n8n 실행부\nconst alert = $('Split Alerts').item.json;\nconst weatherRes = $('Get Weather').item.json;\nconst routeRes = $('Get Travel Time').item.json;\nreturn { json: decide(alert, weatherRes, routeRes, new Date()) };\n"
+        "jsCode": "// [Decide] 발송 여부 판단 (n8n Code 노드, Run Once for Each Item)\n// 입력: Split Alerts(알림), Get Weather(Open-Meteo), Get Travel Time(카카오모빌리티)\n// 출력: shouldSend, reason, dispatch 요청 본문\n\nfunction decide(alert, weatherRes, routeRes, nowDate) {\n  const now = nowDate || new Date();\n  const arrival = alert.arrival_at ? new Date(alert.arrival_at) : null;\n  const buffer = Number(alert.buffer_minutes || 10);\n\n  // 1) 날씨 정리\n  const WEATHER_CODES = [\n    [0, 0, '맑음'], [1, 3, '구름 조금~흐림'], [45, 48, '안개'],\n    [51, 57, '이슬비'], [61, 67, '비'], [71, 77, '눈'],\n    [80, 82, '소나기'], [85, 86, '눈 소나기'], [95, 99, '뇌우'],\n  ];\n  let weather = null;\n  if (weatherRes && weatherRes.current) {\n    const cur = weatherRes.current;\n    const code = cur.weather_code;\n    const found = WEATHER_CODES.find(([a, b]) => code >= a && code <= b);\n    // 지금부터 도착 시각까지 시간대별 강수확률 중 최댓값\n    let maxProb = null;\n    const hourly = weatherRes.hourly || {};\n    const times = hourly.time || [];\n    const probs = hourly.precipitation_probability || [];\n    // trip: 도착 시각까지, reminder: 앞으로 12시간\n    const end = arrival || new Date(now.getTime() + 12 * 3600 * 1000);\n    for (let i = 0; i < times.length; i++) {\n      const t = new Date(times[i] + ':00+09:00');\n      if (t.getTime() >= now.getTime() - 3600 * 1000 && t.getTime() <= end.getTime()) {\n        if (probs[i] != null && (maxProb === null || probs[i] > maxProb)) maxProb = probs[i];\n      }\n    }\n    weather = {\n      temperature: cur.temperature_2m ?? null,\n      precipitation: cur.precipitation ?? null,\n      precipitation_probability: maxProb,\n      summary: found ? found[2] : null,\n    };\n  }\n\n  // 2) 이동 시간\n  let travelMinutes = null;\n  const route = routeRes && Array.isArray(routeRes.routes) ? routeRes.routes[0] : null;\n  if (route && route.result_code === 0 && route.summary && route.summary.duration != null) {\n    travelMinutes = Math.round(route.summary.duration / 60);\n  }\n  let leaveAt = null;\n  if (arrival && travelMinutes !== null) {\n    leaveAt = new Date(arrival.getTime() - (travelMinutes + buffer) * 60 * 1000);\n  }\n\n  // 3) 조건 확인 (조건이 있는데 날씨를 못 가져오면 다음 주기에 다시 확인)\n  //    형식: {type: \"temperature\" | \"precipitation\", op: \"<\" | \"<=\" | \">\" | \">=\", value}\n  //    예전 형식(rain, temp_below, temp_above)도 처리\n  const compare = (left, op, right) => {\n    if (left === null || left === undefined) return false;\n    if (op === '<') return left < right;\n    if (op === '<=') return left <= right;\n    if (op === '>') return left > right;\n    if (op === '>=') return left >= right;\n    return false;\n  };\n  let cond = alert.condition;\n  if (cond && cond.type === 'rain') cond = { type: 'precipitation', op: '>=', value: cond.value ?? 50 };\n  if (cond && cond.type === 'temp_below') cond = { type: 'temperature', op: '<', value: cond.value ?? 0 };\n  if (cond && cond.type === 'temp_above') cond = { type: 'temperature', op: '>', value: cond.value ?? 30 };\n\n  let conditionOk = true;\n  let reason = '';\n  if (cond && cond.type) {\n    if (!weather) {\n      conditionOk = false;\n      reason = '날씨 정보 없음';\n    } else if (cond.type === 'precipitation') {\n      const threshold = cond.value != null ? Number(cond.value) : 50;\n      const op = cond.op || '>=';\n      conditionOk = compare(weather.precipitation_probability ?? 0, op, threshold)\n        || ((op === '>=' || op === '>') && (weather.precipitation ?? 0) > 0);\n      if (!conditionOk) reason = '강수 조건 미충족';\n    } else if (cond.type === 'temperature') {\n      conditionOk = compare(weather.temperature, cond.op, Number(cond.value));\n      if (!conditionOk) reason = '기온 조건 미충족';\n    }\n  }\n\n  // 4) 발송 시점 확인 (워크플로우가 10분마다 돌므로 출발 10분 전부터 발송)\n  let timeOk = true;\n  if (alert.kind !== 'reminder' && alert.notify_mode === 'departure') {\n    const LEAD_MS = 10 * 60 * 1000;\n    if (leaveAt) {\n      timeOk = now.getTime() >= leaveAt.getTime() - LEAD_MS;\n    } else if (arrival) {\n      // 이동 시간을 못 구하면 도착 60분 전에 발송\n      timeOk = now.getTime() >= arrival.getTime() - 60 * 60 * 1000;\n    }\n    if (!timeOk && !reason) reason = '아직 출발 시각 전';\n  }\n\n  return {\n    alert_id: alert.id,\n    user_id: alert.user_id,\n    kind: alert.kind || 'trip',\n    shouldSend: conditionOk && timeOk,\n    reason: conditionOk && timeOk ? '발송' : reason,\n    leave_at: leaveAt ? leaveAt.toISOString() : null,\n    travel_minutes: travelMinutes,\n    weather,\n    payload: {\n      user_id: alert.user_id,\n      weather,\n      travel_minutes: travelMinutes,\n      leave_at: leaveAt ? leaveAt.toISOString() : null,\n    },\n  };\n}\n\n// n8n 실행부\nconst alert = $('Split Alerts').item.json;\nconst weatherRes = $('Get Weather').item.json;\nconst routeRes = $('Get Travel Time').item.json;\nreturn { json: decide(alert, weatherRes, routeRes, new Date()) };\n"
       }
     },
     {
-      "id": "aaf6ece7-c5c2-4e2f-b07f-1c607411cd3a",
+      "id": "69500010-1546-4b55-ae50-dced78af159e",
       "name": "Should Send?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -230,7 +230,7 @@
           },
           "conditions": [
             {
-              "id": "85d7ed3a-df3e-4467-899e-e420626781f7",
+              "id": "48f5a4d0-af84-4867-893e-f9a446ca7f5c",
               "leftValue": "={{ $json.shouldSend }}",
               "rightValue": "",
               "operator": {
@@ -246,7 +246,7 @@
       }
     },
     {
-      "id": "2df4eb62-f4bd-487f-b9dd-8d698280a708",
+      "id": "ae34d09a-8b36-4455-99f6-512c4f5541fa",
       "name": "Dispatch",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -279,7 +279,7 @@
       }
     },
     {
-      "id": "2fcc92e7-1559-42b3-9641-e278c5eaa8bf",
+      "id": "a892487b-9055-412a-b48b-7a606070442a",
       "name": "Wait Next Cycle",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,

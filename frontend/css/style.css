@@ -196,6 +196,11 @@ textarea {
     color: #3c1e1e;
 }
 
+.status-repeat {
+    background-color: #dfeee2;
+    color: #1f5130;
+}
+
 .status-expired {
     background-color: #e4e4e4;
     color: #555555;

@@ -176,15 +176,29 @@ function loadAlerts() {
 
 const STATUS_LABELS = {
     active: "대기 중",
+    repeat: "반복 중",
     sending: "발송 중",
     sent: "발송 완료",
     expired: "기간 만료"
+};
+
+const OP_TEXT = {
+    "<": "미만",
+    "<=": "이하",
+    ">": "초과",
+    ">=": "이상"
+};
+
+const REPEAT_TEXT = {
+    daily: "매일",
+    weekdays: "평일마다"
 };
 
 function conditionText(condition) {
     if (!condition || !condition.type) {
         return "";
     }
+    // 예전 형식
     if (condition.type === "rain") {
         return "비가 올 때만";
     }
@@ -194,7 +208,23 @@ function conditionText(condition) {
     if (condition.type === "temp_above") {
         return condition.value + "도 초과일 때만";
     }
+    // 현재 형식 {type, op, value}
+    const op = OP_TEXT[condition.op] || "";
+    if (condition.type === "precipitation") {
+        return "강수확률 " + condition.value + "% " + op + "일 때만";
+    }
+    if (condition.type === "temperature") {
+        return "기온 " + condition.value + "도 " + op + "일 때만";
+    }
     return "";
+}
+
+function formatClock(value) {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) {
+        return value;
+    }
+    return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
 }
 
 function renderAlert(item) {
@@ -204,12 +234,23 @@ function renderAlert(item) {
     const head = document.createElement("div");
     head.className = "card-head";
 
+    const isReminder = item.kind === "reminder";
+    const repeatText = REPEAT_TEXT[item.repeat] || "";
+
     const route = document.createElement("p");
     route.className = "card-route";
-    route.textContent = (item.departure || "출발지 미정") + " → " + (item.destination || "도착지 미정");
+    if (isReminder) {
+        const place = (item.location && item.location.place_name) || item.location_name;
+        route.textContent = (repeatText ? repeatText + " " : "") + formatClock(item.notify_at) + " 알림" + (place ? " · " + place : "");
+    } else {
+        route.textContent = (item.departure || "출발지 미정") + " → " + (item.destination || "도착지 미정");
+    }
 
     const statusBadge = document.createElement("span");
-    const statusKey = item.status || (item.sent ? "sent" : "active");
+    let statusKey = item.status || (item.sent ? "sent" : "active");
+    if (statusKey === "active" && item.repeat && item.repeat !== "none") {
+        statusKey = "repeat";
+    }
     statusBadge.className = "status-badge status-" + statusKey;
     statusBadge.textContent = STATUS_LABELS[statusKey] || statusKey;
 
@@ -218,11 +259,16 @@ function renderAlert(item) {
 
     const time = document.createElement("p");
     time.className = "card-time";
-    let timeText = "도착 " + formatTime(item.arrival_at);
-    if (item.notify_mode === "departure") {
-        timeText += " / 이동 시간에 맞춰 출발 알림";
+    let timeText;
+    if (isReminder) {
+        timeText = (repeatText ? "다음 알림 " : "알림 ") + formatTime(item.notify_at);
     } else {
-        timeText += " / 알림 " + formatTime(item.notify_at);
+        timeText = "도착 " + formatTime(item.arrival_at);
+        if (item.notify_mode === "departure") {
+            timeText += " / 이동 시간에 맞춰 출발 알림";
+        } else {
+            timeText += " / 알림 " + formatTime(item.notify_at);
+        }
     }
     const cond = conditionText(item.condition);
     if (cond) {

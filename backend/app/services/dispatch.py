@@ -1,9 +1,9 @@
 # n8n 예약 발송용 로직: 발송 대상 조회, 발송 처리
 #
 # 알림 상태 흐름
-#   active  → sending → sent      (발송 성공)
-#   active  → sending → active    (발송 실패, 다음 주기에 재시도)
-#   active  → expired             (도착 시각이 지날 때까지 발송되지 않음)
+#   active  → sending → sent      (한 번만 보내는 알림 발송 성공)
+#   active  → sending → active    (반복 알림 발송 성공: 다음 발송 시각으로 이동 / 발송 실패: 다음 주기 재시도)
+#   active  → expired             (trip: 도착 시각까지 미발송, reminder: 발송 시각 1시간 뒤까지 미발송)
 
 from datetime import datetime, timedelta
 
@@ -14,12 +14,16 @@ from app.config import FRONTEND_URL
 from app.firebase import db
 from app.services.kakao import send_kakao_message
 from app.services.llm import compose_alert_message
-from app.services.timeutil import now_utc, parse_iso, to_iso_kst
+from app.services.timeutil import next_occurrence, now_utc, parse_iso, to_iso_kst
 from app.services.user import get_valid_access_token
 
 
 # 발송 중(sending) 상태로 이 시간 넘게 멈춰 있으면 실패로 보고 다시 발송 대상에 포함
 SENDING_TIMEOUT = timedelta(minutes=5)
+
+# reminder 알림은 조건이 맞지 않아도 발송 시각 뒤 이 시간까지만 다시 확인
+# (반복 알림은 다음 날로 넘기고, 한 번만 보내는 알림은 만료)
+REMINDER_WINDOW = timedelta(minutes=60)
 
 
 def _alert_ref(user_id: str, alert_id: str):
@@ -43,6 +47,8 @@ def serialize_due_alert(user_id: str, alert_id: str, data: dict) -> dict:
     return {
         "id": alert_id,
         "user_id": str(user_id),
+        "kind": data.get("kind") or "trip",
+        "repeat": data.get("repeat") or "none",
         "departure": data.get("departure"),
         "destination": data.get("destination"),
         "arrival_at": to_iso_kst(parse_iso(data.get("arrival_at"))),
@@ -51,6 +57,7 @@ def serialize_due_alert(user_id: str, alert_id: str, data: dict) -> dict:
         "buffer_minutes": data.get("buffer_minutes") or 10,
         "message": data.get("message"),
         "condition": data.get("condition"),
+        "location": _coord(data.get("location")),
         "departure_coord": _coord(data.get("departure_coord")),
         "destination_coord": _coord(data.get("destination_coord")),
     }
@@ -88,6 +95,25 @@ def list_due_alerts(now: datetime | None = None) -> list[dict]:
                 continue
 
             notify_at = parse_iso(data.get("notify_at"))
+
+            # reminder: 발송 시각이 한참 지났는데 조건이 맞지 않아 못 보낸 경우
+            if (
+                data.get("kind") == "reminder"
+                and notify_at
+                and notify_at + REMINDER_WINDOW < now
+            ):
+                next_at = next_occurrence(notify_at, data.get("repeat") or "none", now)
+                if next_at:
+                    alert_doc.reference.update({
+                        "notify_at": next_at,
+                        "status": "active",
+                        "last_skipped_at": now,
+                        "updated_at": now,
+                    })
+                else:
+                    alert_doc.reference.update({"status": "expired", "updated_at": now})
+                continue
+
             if notify_at and notify_at <= now:
                 due.append(serialize_due_alert(user_doc.id, alert_doc.id, data))
 
@@ -108,6 +134,10 @@ def _claim_alert(transaction, ref, now: datetime) -> str:
         return "already_sent"
     if data.get("status") == "expired":
         return "expired"
+    notify_at = parse_iso(data.get("notify_at"))
+    if notify_at and notify_at > now + timedelta(minutes=1):
+        # 반복 알림이 이미 오늘 발송되어 다음 날로 넘어간 경우 등
+        return "not_due"
     if data.get("status") == "sending":
         sending_at = parse_iso(data.get("sending_at"))
         if sending_at and now - sending_at < SENDING_TIMEOUT:
@@ -161,21 +191,32 @@ async def dispatch_alert(
         })
         raise
 
-    ref.update({
-        "status": "sent",
-        "sent": True,
+    result_fields = {
         "sent_at": now,
         "final_message": message,
         "ai_generated": ai_generated,
         "weather_at_send": weather,
         "travel_minutes": travel_minutes,
         "leave_at": leave_at,
+        "send_count": (alert.get("send_count") or 0) + 1,
         "updated_at": now,
-    })
+    }
+
+    # 반복 알림이면 다음 발송 시각으로 옮기고 계속 active
+    next_at = next_occurrence(
+        parse_iso(alert.get("notify_at")) or now,
+        alert.get("repeat") or "none",
+        now,
+    )
+    if next_at:
+        ref.update({**result_fields, "status": "active", "sent": False, "notify_at": next_at})
+    else:
+        ref.update({**result_fields, "status": "sent", "sent": True})
 
     return {
         "status": "sent",
         "alert_id": alert_id,
         "message": message,
         "ai_generated": ai_generated,
+        "next_notify_at": to_iso_kst(next_at),
     }

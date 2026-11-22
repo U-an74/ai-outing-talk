@@ -22,6 +22,8 @@ def create_alert(user_id: str, alert_data: dict):
             alert_data[key] = ensure_aware(alert_data[key])
 
     data = {
+        "kind": "trip",
+        "repeat": "none",
         "notify_mode": "fixed",
         "condition": None,
         "buffer_minutes": 10,
