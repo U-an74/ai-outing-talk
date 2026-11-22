@@ -60,3 +60,34 @@ def format_hm(value: datetime | None) -> str | None:
     period = "오전" if local.hour < 12 else "오후"
     hour = local.hour % 12 or 12
     return f"{period} {hour}:{local.minute:02d}"
+
+
+def next_occurrence(current: datetime, repeat: str, after: datetime) -> datetime | None:
+    """
+    반복 알림의 다음 발송 시각
+    - daily: 매일 같은 시각
+    - weekdays: 월~금 같은 시각
+    after 이후의 가장 가까운 시각을 반환하고, 반복이 없으면 None
+    """
+
+    if repeat not in ("daily", "weekdays"):
+        return None
+
+    local = ensure_aware(current).astimezone(KST)
+    after = ensure_aware(after)
+
+    candidate = local + timedelta(days=1)
+    for _ in range(14):
+        if candidate > after and (repeat == "daily" or candidate.weekday() < 5):
+            return candidate
+        candidate += timedelta(days=1)
+    return None
+
+
+def first_occurrence(start: datetime, repeat: str, after: datetime) -> datetime:
+    """반복 알림 등록 시 첫 발송 시각 (이미 지났거나 주말이면 다음 해당 날짜로)"""
+
+    start = ensure_aware(start)
+    if start > after and (repeat != "weekdays" or start.astimezone(KST).weekday() < 5):
+        return start
+    return next_occurrence(start, repeat, after) or start

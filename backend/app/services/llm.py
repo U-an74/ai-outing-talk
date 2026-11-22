@@ -72,34 +72,97 @@ def extract_json(text: str) -> dict:
 # 1. 외출 계획 문장 → 구조화된 알림 데이터
 # ---------------------------------------------------------------------------
 
-PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 계획 문장을 알림 데이터(JSON)로 바꾸는 도우미다.
+PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 관련 문장을 알림 데이터(JSON)로 바꾸는 도우미다.
 현재 시각: {now}
+
+알림은 두 종류다.
+- "trip": 어디로 언제까지 가야 하는 약속·외출 (도착지와 도착 시각이 있음)
+  예) "내일 2시까지 강남역 가야 해", "금요일 저녁 7시 홍대 약속"
+- "reminder": 정해진 시각에 받는 알림 (반복 가능, 날씨 조건 가능)
+  예) "매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘", "내일 8시에 비 오면 우산 챙기라고 해줘"
 
 아래 형식의 JSON 객체 하나만 출력한다. 설명, 코드블록 표시는 쓰지 않는다.
 {{
-  "departure": 출발지 이름(문자열) 또는 null,
-  "destination": 도착지 이름(문자열) 또는 null,
+  "kind": "trip" 또는 "reminder",
+  "departure": 출발지 이름 또는 null,
+  "destination": 도착지 이름 또는 null,
   "arrival_at": 도착해야 하는 시각, "+09:00"이 붙은 ISO 8601 문자열 또는 null,
-  "notify_at": 사용자가 알림 받을 시각을 직접 말한 경우에만 ISO 8601 문자열, 아니면 null,
-  "condition": 조건이 있으면 {{"type": "rain" | "temp_below" | "temp_above", "value": 숫자 또는 null}}, 없으면 null,
-  "items_hint": 사용자가 챙기겠다고 말한 준비물(문자열), 없으면 "",
+  "send_at": 알림 받을 시각, "+09:00"이 붙은 ISO 8601 문자열 또는 null,
+  "repeat": "none" | "daily" | "weekdays",
+  "location": 날씨를 확인할 장소 이름 또는 null,
+  "condition": {{"type": "temperature" | "precipitation", "op": "<" | "<=" | ">" | ">=", "value": 숫자}} 또는 null,
+  "items_hint": 챙길 준비물, 없으면 "",
   "message": 사용자 요청을 한 문장으로 정리한 문자열
 }}
 
 규칙:
 - "내일", "모레", "다음 주 월요일" 같은 표현은 현재 시각을 기준으로 실제 날짜로 바꾼다.
-- 오전/오후 표시가 없으면 상식적으로 판단한다. (예: "3시 약속" → 오후 3시)
+- 오전/오후 표시가 없으면 상식적으로 판단한다. (예: "3시 약속" → 오후 3시, "아침 7시" → 오전 7시)
 - 날짜 없이 시각만 말했는데 그 시각이 이미 지났으면 다음 날로 본다.
+- reminder는 send_at이 꼭 있어야 한다. trip의 send_at은 사용자가 알림 시각을 직접 말한 경우에만 쓴다.
+- "매일" → repeat = "daily", "평일마다", "출근하는 날마다" → repeat = "weekdays", 그 외 → "none"
 - 장소 이름은 지도에서 검색할 수 있게 사용자가 쓴 그대로 짧게 적는다. (예: "강남역", "회사")
-- "비 오면", "우산" → condition.type = "rain", value = null
-- "영하면", "0도보다 추우면" → condition.type = "temp_below", value = 0
-- "30도 넘으면" → condition.type = "temp_above", value = 30
+- reminder에서 장소를 말하지 않았으면 location은 null로 둔다. trip이면 location은 도착지와 같게 둔다.
+- 조건 변환
+  - "영하면", "0도보다 추우면" → {{"type": "temperature", "op": "<", "value": 0}}
+  - "5도 이하면" → {{"type": "temperature", "op": "<=", "value": 5}}
+  - "30도 넘으면" → {{"type": "temperature", "op": ">", "value": 30}}
+  - "비 오면", "눈 오면", "우산" → {{"type": "precipitation", "op": ">=", "value": 50}} (강수확률 %)
 - 알 수 없는 값은 지어내지 말고 null로 둔다.
 """
 
+VALID_OPS = ("<", "<=", ">", ">=")
+
+
+def normalize_condition(raw) -> dict | None:
+    """
+    조건을 {"type", "op", "value"} 형식으로 통일
+    - type: "temperature"(기온, 도) 또는 "precipitation"(강수확률, %)
+    - 예전 형식(rain, temp_below, temp_above)도 받아서 바꿔 준다.
+    """
+
+    if not isinstance(raw, dict):
+        return None
+
+    ctype = str(raw.get("type") or "").strip().lower()
+    op = raw.get("op")
+    value = raw.get("value")
+
+    try:
+        value = float(value) if value is not None else None
+    except (TypeError, ValueError):
+        value = None
+
+    if ctype in ("rain", "snow", "precipitation", "precipitation_probability"):
+        return {
+            "type": "precipitation",
+            "op": op if op in VALID_OPS else ">=",
+            "value": value if value is not None else 50.0,
+        }
+
+    if ctype == "temp_below":
+        return {"type": "temperature", "op": "<", "value": value if value is not None else 0.0}
+
+    if ctype == "temp_above":
+        return {"type": "temperature", "op": ">", "value": value if value is not None else 30.0}
+
+    if ctype in ("temperature", "temp"):
+        if op not in VALID_OPS or value is None:
+            return None
+        return {"type": "temperature", "op": op, "value": value}
+
+    return None
+
+
+def _clean(value):
+    if value is None:
+        return None
+    value = str(value).strip()
+    return value or None
+
 
 async def parse_outing_text(text: str, now: datetime) -> dict:
-    """외출 계획 문장을 구조화된 dict로 변환"""
+    """외출 관련 문장을 구조화된 dict로 변환"""
 
     messages = [
         {"role": "system", "content": PARSE_SYSTEM_PROMPT.format(now=describe_now(now))},
@@ -108,29 +171,29 @@ async def parse_outing_text(text: str, now: datetime) -> dict:
     raw = await chat(messages, temperature=0.0)
     data = extract_json(raw)
 
-    condition = data.get("condition")
-    if not isinstance(condition, dict) or condition.get("type") not in ("rain", "temp_below", "temp_above"):
-        condition = None
-    elif condition.get("value") is not None:
-        try:
-            condition["value"] = float(condition["value"])
-        except (TypeError, ValueError):
-            condition["value"] = None
+    destination = _clean(data.get("destination"))
+    arrival_at = parse_iso(data.get("arrival_at"))
+    send_at = parse_iso(data.get("send_at") or data.get("notify_at"))
 
-    def clean(value):
-        if value is None:
-            return None
-        value = str(value).strip()
-        return value or None
+    kind = data.get("kind")
+    if kind not in ("trip", "reminder"):
+        kind = "trip" if destination and arrival_at else "reminder"
+
+    repeat = data.get("repeat")
+    if repeat not in ("none", "daily", "weekdays"):
+        repeat = "none"
 
     return {
-        "departure": clean(data.get("departure")),
-        "destination": clean(data.get("destination")),
-        "arrival_at": parse_iso(data.get("arrival_at")),
-        "notify_at": parse_iso(data.get("notify_at")),
-        "condition": condition,
-        "items_hint": clean(data.get("items_hint")) or "",
-        "message": clean(data.get("message")) or text.strip(),
+        "kind": kind,
+        "departure": _clean(data.get("departure")),
+        "destination": destination,
+        "arrival_at": arrival_at,
+        "send_at": send_at,
+        "repeat": repeat,
+        "location": _clean(data.get("location")) or (destination if kind == "trip" else None),
+        "condition": normalize_condition(data.get("condition")),
+        "items_hint": _clean(data.get("items_hint")) or "",
+        "message": _clean(data.get("message")) or text.strip(),
     }
 
 
@@ -143,7 +206,8 @@ COMPOSE_SYSTEM_PROMPT = """너는 외출 알림을 카카오톡으로 보내는 
 
 규칙:
 - 2~3문장, 120자 이내
-- 출발 권장 시각이 있으면 반드시 포함한다. 이미 지났으면 지금 바로 출발하라고 알린다.
+- 약속·외출 알림이면 출발 권장 시각을 반드시 포함한다. 이미 지났으면 지금 바로 출발하라고 알린다.
+- 정해진 시각 알림이면 사용자 요청 내용을 날씨와 함께 전한다.
 - 강수확률이 50% 이상이거나 비/눈이 오면 우산을 챙기라고 한다.
 - 기온이 5도 이하이면 따뜻한 옷을, 28도 이상이면 더위 대비를 권한다.
 - 사용자가 말한 준비물이 있으면 함께 알려준다.
@@ -173,14 +237,17 @@ def fallback_message(
 ) -> str:
     """LLM을 쓸 수 없을 때 보내는 기본 문구"""
 
-    destination = alert.get("destination") or "목적지"
     lines = []
-    if leave_at:
-        lines.append(f"{destination}까지 {format_hm(leave_at)}에 출발하세요.")
+    if alert.get("kind") == "reminder":
+        lines.append(f"요청하신 알림입니다: {alert.get('message') or ''}".strip())
     else:
-        arrival = parse_iso(alert.get("arrival_at"))
-        when = f" {format_hm(arrival)}" if arrival else ""
-        lines.append(f"{destination}{when} 약속 알림입니다.")
+        destination = alert.get("destination") or "목적지"
+        if leave_at:
+            lines.append(f"{destination}까지 {format_hm(leave_at)}에 출발하세요.")
+        else:
+            arrival = parse_iso(alert.get("arrival_at"))
+            when = f" {format_hm(arrival)}" if arrival else ""
+            lines.append(f"{destination}{when} 약속 알림입니다.")
     if travel_minutes is not None:
         lines.append(f"예상 이동 시간은 약 {travel_minutes}분입니다.")
     if weather:
@@ -216,8 +283,10 @@ async def compose_alert_message(
     """
 
     arrival = parse_iso(alert.get("arrival_at"))
+    kind_text = "정해진 시각 알림" if alert.get("kind") == "reminder" else "약속·외출 출발 알림"
     facts = [
         f"현재 시각: {describe_now(now)}",
+        f"알림 종류: {kind_text}",
         f"사용자 요청: {alert.get('message') or alert.get('original_text') or ''}",
         f"출발지: {alert.get('departure') or '알 수 없음'}",
         f"도착지: {alert.get('destination') or '알 수 없음'}",
