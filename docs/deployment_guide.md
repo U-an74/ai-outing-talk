@@ -15,6 +15,12 @@
 - 로그인 상태를 쿠키로 유지하는데, 두 서비스의 도메인이 다르면 쿠키가 다른 사이트 쿠키로 취급된다. 아이폰 사파리 등은 이를 기본으로 차단해 로그인이 유지되지 않을 수 있다.
 - FastAPI가 `frontend/` 정적 파일을 함께 제공하도록 바꿔 같은 주소에서 동작하게 했다. 쿠키, CORS, 리다이렉트 설정이 단순해지고 배포도 한 번으로 끝난다.
 
+### 기술적 의사결정: 카카오 앱 분리
+
+- 카카오맵 API 무료 쿼터는 개발자 계정당 앱 1개에만 제공된다.
+- 로그인·메시지용 앱과 카카오맵용 앱을 나누고, 백엔드는 `KAKAO_MAP_REST_API_KEY`로 지도 API를, `KAKAO_REST_API_KEY`로 로그인·메시지를 호출한다.
+- n8n의 이동 시간 조회(Config 노드 `kakao_rest_api_key`)에도 카카오맵용 키를 사용한다.
+
 ### 기술적 의사결정: 날씨 API
 
 - 기상청 단기예보는 위경도를 격자 좌표로 변환해야 하고 API 키 승인 시간이 필요하다.
@@ -43,6 +49,7 @@
 | `KAKAO_REST_API_KEY` | 카카오 REST API 키 |
 | `KAKAO_CLIENT_SECRET` | 카카오 Client Secret |
 | `KAKAO_REDIRECT_URI` | `https://<render 주소>/api/auth/kakao/callback` |
+| `KAKAO_MAP_REST_API_KEY` | 카카오맵 API가 활성화된 앱의 REST 키 (로그인용 앱과 같으면 생략) |
 | `APP_SESSION_SECRET` | 긴 임의 문자열 |
 | `COOKIE_SECURE` | `true` |
 | `FRONTEND_URL` | `/` |

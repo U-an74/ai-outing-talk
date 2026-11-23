@@ -28,6 +28,12 @@ KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
 
+# 카카오맵(Local, 모빌리티) 전용 REST API 키
+# 카카오맵 무료 쿼터는 개발자 계정당 앱 1개에만 제공되므로,
+# 로그인·메시지용 앱과 지도용 앱을 나눠 쓸 수 있게 분리한다.
+# 비워 두면 KAKAO_REST_API_KEY를 그대로 사용한다.
+KAKAO_MAP_REST_API_KEY = os.getenv("KAKAO_MAP_REST_API_KEY") or KAKAO_REST_API_KEY
+
 # App session
 APP_SESSION_SECRET = os.getenv("APP_SESSION_SECRET")
 
