@@ -276,16 +276,25 @@ function renderAlert(item) {
     }
     time.textContent = timeText;
 
+    const isTemplateMessage = item.final_message && item.ai_generated === false;
     const message = document.createElement("p");
     message.className = "card-message";
     message.textContent = item.final_message || item.message || "알림 문구를 준비하고 있습니다.";
+    if (isTemplateMessage) {
+        message.textContent = message.textContent.replace(/\n\(AI가 작성한 메시지\)$/, "");
+    }
 
     const foot = document.createElement("div");
     foot.className = "card-foot";
 
-    const badge = document.createElement("span");
-    badge.className = "ai-badge";
-    badge.textContent = item.final_message ? "AI 작성 메시지" : "AI 해석";
+    if (item.final_message || item.ai_parsed) {
+        const badge = document.createElement("span");
+        badge.className = "ai-badge";
+        badge.textContent = item.final_message
+            ? (isTemplateMessage ? "기본 알림" : "AI 작성 메시지")
+            : "AI 해석";
+        foot.appendChild(badge);
+    }
 
     const del = document.createElement("button");
     del.type = "button";
@@ -309,7 +318,6 @@ function renderAlert(item) {
             });
     });
 
-    foot.appendChild(badge);
     foot.appendChild(del);
 
     li.appendChild(head);
