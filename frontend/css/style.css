@@ -59,6 +59,50 @@ body {
     font-size: 14px;
 }
 
+.guide {
+    margin: 0 0 12px;
+    font-size: 14px;
+}
+
+.guide dt {
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.guide dt:first-child {
+    margin-top: 0;
+}
+
+.guide dd {
+    margin: 4px 0 0;
+    color: #3d2b2b;
+}
+
+.guide .example {
+    color: #5a4040;
+    font-size: 13px;
+}
+
+.guide-notes {
+    margin: 0 0 16px;
+    padding-left: 18px;
+    font-size: 13px;
+    color: #5a4040;
+}
+
+.delivery-notice {
+    margin-bottom: 16px;
+}
+
+.delivery-notice p {
+    margin: 0 0 8px;
+}
+
+.delivery-notice ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
 .terms dt {
     font-weight: bold;
     font-size: 14px;
