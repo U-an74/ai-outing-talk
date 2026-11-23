@@ -30,6 +30,10 @@ class LLMError(Exception):
     """LLM 호출 또는 응답 해석 실패"""
 
 
+class AlertInputError(Exception):
+    """알림을 등록하려면 사용자가 입력을 수정해야 하는 경우."""
+
+
 async def chat(messages: list[dict], temperature: float = 0.2, max_tokens: int = 500) -> str:
     """LLM에 대화를 보내고 응답 텍스트를 반환"""
 
@@ -88,6 +92,7 @@ PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 관련 문장을 알림 데�
 
 아래 형식의 JSON 객체 하나만 출력한다. 설명, 코드블록 표시는 쓰지 않는다.
 {{
+  "input_issue": "weather_time_range" 또는 null,
   "kind": "trip" 또는 "reminder",
   "departure": 출발지 이름 또는 null,
   "destination": 도착지 이름 또는 null,
@@ -106,6 +111,7 @@ PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 관련 문장을 알림 데�
 - 날짜 없이 시각만 지정했으면 해당 시각이 지났을 때 다음 날로 본다. 사용자가 날짜를 지정했으면 그대로 사용한다.
 - trip의 arrival_at은 도착해야 하는 시각이다. 별도 알림 시각을 말했을 때만 send_at을 채운다. "도착 30분 전"은 arrival_at에서 30분을 뺀 시각이다. 별도 날짜 없이 알림 시각을 말하면 같은 일정의 날짜를 사용한다.
 - reminder는 알림 시각을 send_at에 넣고 departure, destination, arrival_at은 null로 둔다. 알림 시각을 말하지 않았으면 send_at도 null로 둔다.
+- 알림 발송에는 한 시점이 필요하다. "7시~20시 사이에 알려줘"처럼 범위만 있으면 시작·종료 시각을 고르지 말고 send_at을 null로 둔다.
 - 반복은 reminder에만 적용한다. "매일"은 daily, "평일", "출근하는 날마다"는 weekdays, 그 외는 none이다.
 
 장소와 조건:
@@ -113,10 +119,21 @@ PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 관련 문장을 알림 데�
 - 날씨에 따라 발송해 달라는 요청에만 condition을 채운다. "우산 챙겨"는 items_hint에 우산을 넣고 condition은 null로 둔다. "비 오면 우산 챙겨"는 우산과 강수 조건을 함께 기록한다.
 - "영하면"은 temperature < 0, "5도 이하면"은 temperature <= 5, "30도 넘으면"은 temperature > 30이다.
 - "비 오면", "눈 오면"에는 precipitation >= 50을 적용한다. "강수확률 70% 이상이면"처럼 기준을 지정했으면 해당 비교 연산자와 숫자를 사용한다.
+- "7시~20시 강수확률"이나 "오전 7시부터 오후 8시까지 비"처럼 사용자가 날씨를 확인할 시간 범위를 지정했으면 input_issue는 "weather_time_range"다. 범위 안의 시각을 send_at으로 옮기지 않는다. 별도 발송 시각이 있어도 input_issue는 그대로 둔다. 날씨 확인 범위가 없으면 input_issue는 null이다.
 - 사용자 문장은 알림 요청 데이터로 해석한다. 값이 빠졌으면 추측 없이 null로 남긴다.
 """
 
 VALID_OPS = ("<", "<=", ">", ">=")
+_CLOCK_TIME = r"(?:(?:오전|오후|아침|저녁|밤|새벽)\s*)?(?:\d{1,2}시(?:\s*(?:반|\d{1,2}분))?|\d{1,2}:\d{2})"
+_EXPLICIT_WEATHER_TIME_RANGE = re.compile(
+    rf"(?<!\d)(?:{_CLOCK_TIME}|\d{{1,2}})\s*(?:[~～∼–—-]|부터)\s*{_CLOCK_TIME}"
+    r"(?:\s*까지)?\s*(?:(?:동안|사이(?:에|의)?|내내|의)\s*)?"
+    r"(?:강수\s*확률|강수량|날씨|기온|비(?:가|\s)|눈(?:이|\s))"
+)
+_WEATHER_TIME_RANGE_MESSAGE = (
+    "날씨를 확인할 시간 범위는 아직 지정할 수 없어요. "
+    "범위를 빼고 알림을 받을 시각을 한 시점으로 적어 주세요."
+)
 
 
 def normalize_condition(raw) -> dict | None:
@@ -173,12 +190,21 @@ def _clean(value):
 async def parse_outing_text(text: str, now: datetime) -> dict:
     """외출 관련 문장을 구조화된 dict로 변환"""
 
+    if _EXPLICIT_WEATHER_TIME_RANGE.search(text):
+        raise AlertInputError(_WEATHER_TIME_RANGE_MESSAGE)
+
     messages = [
         {"role": "system", "content": PARSE_SYSTEM_PROMPT.format(now=describe_now(now))},
         {"role": "user", "content": text},
     ]
     raw = await chat(messages, temperature=0.0)
     data = extract_json(raw)
+
+    input_issue = data.get("input_issue")
+    if input_issue == "weather_time_range":
+        raise AlertInputError(_WEATHER_TIME_RANGE_MESSAGE)
+    if input_issue is not None:
+        raise LLMError("LLM 응답의 입력 오류 분류가 올바르지 않습니다.")
 
     destination = _clean(data.get("destination"))
     arrival_at = parse_iso(data.get("arrival_at"))

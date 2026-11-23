@@ -13,7 +13,7 @@ from app.services.alert import (
     get_alert,
     delete_alert,
 )
-from app.services.llm import LLMError, parse_outing_text
+from app.services.llm import AlertInputError, LLMError, parse_outing_text
 from app.services.location import geocode
 from app.services.session import get_current_user_id
 from app.services.timeutil import first_occurrence, now_kst
@@ -43,6 +43,8 @@ async def register_natural_alert(
 
     try:
         parsed = await parse_outing_text(body.text, now)
+    except AlertInputError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except LLMError:
         raise HTTPException(
             status_code=502,
@@ -245,7 +247,10 @@ async def _build_reminder(parsed: dict, text: str, now) -> dict:
     if not send_at:
         raise HTTPException(
             status_code=422,
-            detail="알림 받을 시각을 알 수 없어요. 예) 매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘",
+            detail=(
+                "알림을 받을 시각을 한 시점으로 적어 주세요. "
+                "예) 매일 아침 7시에 강수확률이 40% 이상이면 우산을 챙기라고 알려줘"
+            ),
         )
 
     repeat = parsed["repeat"]

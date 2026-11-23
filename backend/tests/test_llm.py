@@ -47,6 +47,11 @@ class LLMTest(unittest.IsolatedAsyncioTestCase):
                 "2026-11-24T07:30:00+09:00", "daily", "우산",
                 {"type": "precipitation", "op": ">=", "value": 70},
             ),
+            (
+                "매일 아침 7시에 강수확률이 40% 이상이면 우산을 챙기라고 알려줘",
+                "2026-11-24T07:00:00+09:00", "daily", "우산",
+                {"type": "precipitation", "op": ">=", "value": 40},
+            ),
         )
         for text, send_at, repeat, items, condition in cases:
             with self.subTest(text=text):
@@ -62,6 +67,30 @@ class LLMTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(result["items_hint"], items)
                 self.assertEqual(result["condition"], condition)
                 self.assertIsNone(result["location"])
+
+    async def test_explicit_weather_range_is_rejected_before_model_call(self):
+        requests = (
+            "7시~20시 강수확률이 40% 이상이면 알려줘",
+            "매일 아침 7시에, 오전 7시부터 오후 8시까지 강수확률이 40% 이상이면 우산을 챙기라고 알려줘",
+            "07:00–20:00 사이의 날씨를 매일 아침 6시에 알려줘",
+            "매일 오전 6시에 7~20시 동안 비 오면 알려줘",
+        )
+        for text in requests:
+            with self.subTest(text=text), patch.object(llm, "chat", AsyncMock()) as chat:
+                with self.assertRaisesRegex(llm.AlertInputError, "시각을 한 시점으로"):
+                    await llm.parse_outing_text(text, self.now)
+                chat.assert_not_awaited()
+
+    async def test_model_detected_weather_range_is_rejected_even_with_send_time(self):
+        text = "매일 아침 7시에 아침부터 퇴근할 때까지 비가 올지 알려줘"
+        response = json.dumps({
+            "input_issue": "weather_time_range",
+            "kind": "reminder",
+            "send_at": "2026-11-24T07:00:00+09:00",
+        })
+        with patch.object(llm, "chat", AsyncMock(return_value=response)):
+            with self.assertRaisesRegex(llm.AlertInputError, "날씨를 확인할 시간 범위"):
+                await llm.parse_outing_text(text, self.now)
 
     async def test_invalid_weather_conditions_stop_registration(self):
         conditions = (
