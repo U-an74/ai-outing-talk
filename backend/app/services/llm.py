@@ -90,7 +90,11 @@ PARSE_SYSTEM_PROMPT = """너는 사용자의 외출 관련 문장을 알림 데�
 - "reminder": 도착 일정 없이 지정한 시각에 할 일이나 날씨를 알려 달라는 요청. 반복·조건을 지정할 수 있다.
   예) "매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘", "내일 8시에 비 오면 우산 챙기라고 해줘"
 
-아래 형식의 JSON 객체 하나만 출력한다. 설명, 코드블록 표시는 쓰지 않는다.
+한 번에 알림 한 건을 등록한다. 먼저 서로 독립적으로 발송되어야 하는 요청이 몇 개인지 판단한다.
+- "매일 아침 7시에 영하면 패딩 챙기라고 알려줘. 내일 오전 9시까지 강남역도 가야 해"는 반복 알림과 약속 알림 두 건이다. 같은 종류라도 각각 발송해야 하는 요청이면 여러 건이다. 이 경우 하나만 골라 해석하지 말고 {{"input_issue": "multiple_alerts"}}만 출력한다.
+- "내일 오전 9시까지 강남역 가야 해. 오전 8시에 알려줘"는 약속 알림 한 건이다. 같은 일정에 도착 시각과 알림 시각이 둘 다 있거나, 한 알림에 날씨 조건과 여러 준비물이 있어도 한 건이다.
+
+알림이 한 건이면 아래 형식의 JSON 객체 하나만 출력한다. 설명, 코드블록 표시는 쓰지 않는다.
 {{
   "input_issue": "weather_time_range" 또는 null,
   "kind": "trip" 또는 "reminder",
@@ -134,6 +138,7 @@ _WEATHER_TIME_RANGE_MESSAGE = (
     "날씨를 확인할 시간 범위는 아직 지정할 수 없어요. "
     "범위를 빼고 알림을 받을 시각을 한 시점으로 적어 주세요."
 )
+_MULTIPLE_ALERTS_MESSAGE = "알림이 여러 건 포함되어 있어요. 한 번에 하나씩 나눠 등록해 주세요."
 
 
 def normalize_condition(raw) -> dict | None:
@@ -201,6 +206,8 @@ async def parse_outing_text(text: str, now: datetime) -> dict:
     data = extract_json(raw)
 
     input_issue = data.get("input_issue")
+    if input_issue == "multiple_alerts":
+        raise AlertInputError(_MULTIPLE_ALERTS_MESSAGE)
     if input_issue == "weather_time_range":
         raise AlertInputError(_WEATHER_TIME_RANGE_MESSAGE)
     if input_issue is not None:

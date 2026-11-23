@@ -14,6 +14,7 @@ class LLMTest(unittest.IsolatedAsyncioTestCase):
     async def test_parse_trip_with_a_separate_notification_time(self):
         text = "내일 오전 9시까지 서울역에서 강남역 가야 해. 오전 8시에 알려줘"
         model_output = {
+            "input_issue": None,
             "kind": "trip",
             "departure": "서울역",
             "destination": "강남역",
@@ -91,6 +92,22 @@ class LLMTest(unittest.IsolatedAsyncioTestCase):
         with patch.object(llm, "chat", AsyncMock(return_value=response)):
             with self.assertRaisesRegex(llm.AlertInputError, "날씨를 확인할 시간 범위"):
                 await llm.parse_outing_text(text, self.now)
+
+    async def test_multiple_alerts_are_rejected_instead_of_registering_one(self):
+        cases = (
+            (
+                "매일 아침 7시에 영하면 패딩 챙기라고 알려줘. 내일 오전 9시까지 강남역도 가야 해",
+                {"input_issue": "multiple_alerts"},
+            ),
+            (
+                "매일 아침 7시에 물 마시라고 알려주고, 오후 8시에는 운동하라고 알려줘",
+                {"input_issue": "multiple_alerts", "kind": "reminder", "send_at": "2026-11-24T07:00:00+09:00"},
+            ),
+        )
+        for text, model_output in cases:
+            with self.subTest(text=text), patch.object(llm, "chat", AsyncMock(return_value=json.dumps(model_output))):
+                with self.assertRaisesRegex(llm.AlertInputError, "한 번에 하나씩"):
+                    await llm.parse_outing_text(text, self.now)
 
     async def test_invalid_weather_conditions_stop_registration(self):
         conditions = (
