@@ -1,0 +1,28 @@
+
+# 환경변수 및 비밀 정보
+.env
+.env.*
+!.env.example
+
+# Python 가상환경
+venv/
+.venv/
+env/
+
+# Python 캐시 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 테스트 및 실행 결과
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Firebase 인증 키
+*serviceAccountKey*.json
+*firebase-adminsdk*.json
+
+# 운영체제 및 에디터 파일
+.DS_Store
+Thumbs.db

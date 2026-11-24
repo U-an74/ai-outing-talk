@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" font-family="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+  <rect width="1280" height="640" fill="#FFFFFF"/>
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#3F5873"/>
+    </marker>
+  </defs>
+  <text x="40" y="52" font-size="26" font-weight="700" fill="#1A1A1A">시스템 아키텍처</text>
+  <text x="40" y="84" font-size="16" fill="#4A4A4A">프론트와 백엔드는 Render 한 곳에서 제공하고, 예약 발송은 n8n Cloud가 10분마다 백엔드를 호출한다</text>
+
+  <!-- User -->
+  <rect x="40" y="250" width="150" height="84" rx="12" fill="#F4F6F8" stroke="#3F5873" stroke-width="2"/>
+  <text x="115" y="285" font-size="17" font-weight="700" fill="#1A1A1A" text-anchor="middle">사용자</text>
+  <text x="115" y="310" font-size="13" fill="#4A4A4A" text-anchor="middle">PC, 모바일 브라우저</text>
+
+  <!-- Render -->
+  <rect x="250" y="130" width="420" height="330" rx="16" fill="#F7F9FB" stroke="#3F5873" stroke-width="2"/>
+  <text x="272" y="162" font-size="17" font-weight="700" fill="#3F5873">Render (Web Service 1개)</text>
+  <rect x="276" y="180" width="368" height="74" rx="10" fill="#FFFFFF" stroke="#9AA6B2"/>
+  <text x="296" y="210" font-size="15" font-weight="700" fill="#1A1A1A">Frontend (HTML, CSS, JS)</text>
+  <text x="296" y="234" font-size="13" fill="#4A4A4A">동의, 로그인, 자연어 입력, 알림 목록</text>
+  <rect x="276" y="272" width="368" height="166" rx="10" fill="#FFFFFF" stroke="#9AA6B2"/>
+  <text x="296" y="302" font-size="15" font-weight="700" fill="#1A1A1A">Backend (FastAPI)</text>
+  <text x="296" y="328" font-size="13" fill="#4A4A4A">/api/auth/kakao  로그인, 세션 쿠키</text>
+  <text x="296" y="350" font-size="13" fill="#4A4A4A">/api/alerts/natural  AI 자연어 등록</text>
+  <text x="296" y="372" font-size="13" fill="#4A4A4A">/api/alerts  조회, 삭제</text>
+  <text x="296" y="394" font-size="13" fill="#4A4A4A">/api/internal/alerts/due, dispatch  (n8n 전용)</text>
+  <text x="296" y="420" font-size="12" fill="#6B6B6B">토큰 갱신, 중복 발송 방지, 반복 일정 계산</text>
+
+  <!-- user -> render -->
+  <line x1="190" y1="292" x2="242" y2="292" stroke="#3F5873" stroke-width="2.5" marker-end="url(#a)"/>
+
+  <!-- Firestore -->
+  <rect x="330" y="510" width="260" height="84" rx="12" fill="#FFF0E0" stroke="#D98A2B" stroke-width="2"/>
+  <text x="460" y="545" font-size="16" font-weight="700" fill="#1A1A1A" text-anchor="middle">Firebase Firestore</text>
+  <text x="460" y="570" font-size="13" fill="#4A4A4A" text-anchor="middle">users(토큰) / alerts(알림)</text>
+  <line x1="460" y1="438" x2="460" y2="502" stroke="#3F5873" stroke-width="2.5" marker-end="url(#a)"/>
+
+  <!-- Right side services -->
+  <g font-size="14">
+    <rect x="760" y="130" width="230" height="64" rx="10" fill="#E8F2EA" stroke="#2F7A44" stroke-width="2"/>
+    <text x="778" y="158" font-weight="700" fill="#1A1A1A">LLM API</text>
+    <text x="778" y="180" font-size="13" fill="#4A4A4A">자연어 해석, 문구 생성</text>
+
+    <rect x="760" y="210" width="230" height="64" rx="10" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="778" y="238" font-weight="700" fill="#1A1A1A">Kakao OAuth</text>
+    <text x="778" y="260" font-size="13" fill="#4A4A4A">로그인, 토큰 발급·갱신</text>
+
+    <rect x="760" y="290" width="230" height="64" rx="10" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="778" y="318" font-weight="700" fill="#1A1A1A">Kakao Local</text>
+    <text x="778" y="340" font-size="13" fill="#4A4A4A">장소 이름 → 좌표</text>
+
+    <rect x="760" y="370" width="230" height="64" rx="10" fill="#FEE500" stroke="#C9B400" stroke-width="2"/>
+    <text x="778" y="398" font-weight="700" fill="#2B1B12">KakaoTalk 메시지</text>
+    <text x="778" y="420" font-size="13" fill="#2B1B12">나에게 보내기</text>
+  </g>
+  <g stroke="#3F5873" stroke-width="2" marker-end="url(#a)">
+    <line x1="644" y1="320" x2="752" y2="162"/>
+    <line x1="644" y1="330" x2="752" y2="242"/>
+    <line x1="644" y1="345" x2="752" y2="322"/>
+    <line x1="644" y1="360" x2="752" y2="400"/>
+  </g>
+
+  <!-- n8n -->
+  <rect x="760" y="490" width="230" height="104" rx="12" fill="#F1ECFA" stroke="#6B4FB3" stroke-width="2"/>
+  <text x="778" y="520" font-size="16" font-weight="700" fill="#1A1A1A">n8n Cloud</text>
+  <text x="778" y="544" font-size="13" fill="#4A4A4A">10분마다 실행</text>
+  <text x="778" y="566" font-size="13" fill="#4A4A4A">조건 판단, 출발 시각 계산</text>
+  <path d="M760 520 L700 520 L700 410 L652 410" stroke="#6B4FB3" stroke-width="2.5" fill="none" marker-end="url(#a)"/>
+  <text x="664" y="540" font-size="12" fill="#6B4FB3">due / dispatch</text>
+
+  <!-- n8n external -->
+  <g font-size="14">
+    <rect x="1040" y="460" width="200" height="64" rx="10" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="1058" y="488" font-weight="700" fill="#1A1A1A">Open-Meteo</text>
+    <text x="1058" y="510" font-size="13" fill="#4A4A4A">기온, 강수확률</text>
+    <rect x="1040" y="540" width="200" height="64" rx="10" fill="#FFF7C2" stroke="#E0C800" stroke-width="2"/>
+    <text x="1058" y="568" font-weight="700" fill="#1A1A1A">Kakao Mobility</text>
+    <text x="1058" y="590" font-size="13" fill="#4A4A4A">이동 시간</text>
+  </g>
+  <g stroke="#6B4FB3" stroke-width="2" marker-end="url(#a)">
+    <line x1="990" y1="530" x2="1032" y2="495"/>
+    <line x1="990" y1="560" x2="1032" y2="570"/>
+  </g>
+
+  <!-- notes -->
+  <text x="1040" y="150" font-size="13" fill="#4A4A4A">비밀 값 관리</text>
+  <text x="1040" y="172" font-size="12" fill="#6B6B6B">API 키: Render 환경변수</text>
+  <text x="1040" y="192" font-size="12" fill="#6B6B6B">Firebase 키: Secret File</text>
+  <text x="1040" y="212" font-size="12" fill="#6B6B6B">카카오 토큰: Firestore</text>
+  <text x="1040" y="232" font-size="12" fill="#6B6B6B">(화면·응답에 노출 안 함)</text>
+</svg>

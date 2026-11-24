@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="620" viewBox="0 0 1280 620" font-family="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif">
+  <rect width="1280" height="620" fill="#FFFFFF"/>
+  <text x="40" y="52" font-size="26" font-weight="700" fill="#1A1A1A">AI Agent 흐름: 의도 파악 → 도구 사용 → 판단 → 실행</text>
+  <text x="40" y="84" font-size="16" fill="#4A4A4A">사용자는 문장 하나만 입력하고, 나머지는 Agent가 도구를 골라 쓰며 알림을 완성한다</text>
+
+  <!-- input -->
+  <rect x="40" y="120" width="1200" height="64" rx="12" fill="#F4F6F8" stroke="#C9D1DA"/>
+  <text x="64" y="159" font-size="17" fill="#1A1A1A"><tspan font-weight="700">사용자 입력</tspan>   "매일 아침 7시 반에 영하면 패딩 챙기라고 알려줘"   /   "내일 2시까지 서울역에서 강남역 가야 해"</text>
+
+  <!-- arrow down -->
+  <path d="M640 184 L640 214" stroke="#3F5873" stroke-width="2.5"/>
+  <path d="M632 206 L640 218 L648 206" fill="none" stroke="#3F5873" stroke-width="2.5"/>
+
+  <!-- 4 stages -->
+  <g>
+    <rect x="40" y="226" width="276" height="250" rx="14" fill="#FFFFFF" stroke="#3F5873" stroke-width="2"/>
+    <rect x="40" y="226" width="276" height="46" rx="14" fill="#3F5873"/>
+    <rect x="40" y="258" width="276" height="14" fill="#3F5873"/>
+    <text x="60" y="256" font-size="18" font-weight="700" fill="#FFFFFF">1. 의도 파악 (LLM)</text>
+    <text x="60" y="302" font-size="15" fill="#1A1A1A">알림 종류 판단</text>
+    <text x="60" y="324" font-size="14" fill="#4A4A4A">trip: 약속·외출 출발 알림</text>
+    <text x="60" y="344" font-size="14" fill="#4A4A4A">reminder: 정해진 시각 알림</text>
+    <text x="60" y="376" font-size="15" fill="#1A1A1A">항목 추출 (JSON)</text>
+    <text x="60" y="398" font-size="14" fill="#4A4A4A">장소, 도착·알림 시각, 반복</text>
+    <text x="60" y="418" font-size="14" fill="#4A4A4A">조건 {type, op, value}</text>
+    <text x="60" y="450" font-size="13" fill="#6B6B6B">"내일", "금요일" → 실제 날짜</text>
+  </g>
+
+  <g>
+    <rect x="348" y="226" width="276" height="250" rx="14" fill="#FFFFFF" stroke="#3F5873" stroke-width="2"/>
+    <rect x="348" y="226" width="276" height="46" rx="14" fill="#3F5873"/>
+    <rect x="348" y="258" width="276" height="14" fill="#3F5873"/>
+    <text x="368" y="256" font-size="18" font-weight="700" fill="#FFFFFF">2. 도구 사용</text>
+    <rect x="366" y="290" width="240" height="44" rx="8" fill="#FFF7C2" stroke="#E0C800"/>
+    <text x="380" y="310" font-size="14" font-weight="700" fill="#1A1A1A">카카오 Local</text>
+    <text x="380" y="327" font-size="13" fill="#4A4A4A">장소 이름 → 좌표</text>
+    <rect x="366" y="344" width="240" height="44" rx="8" fill="#FFF7C2" stroke="#E0C800"/>
+    <text x="380" y="364" font-size="14" font-weight="700" fill="#1A1A1A">Open-Meteo</text>
+    <text x="380" y="381" font-size="13" fill="#4A4A4A">기온, 강수확률</text>
+    <rect x="366" y="398" width="240" height="44" rx="8" fill="#FFF7C2" stroke="#E0C800"/>
+    <text x="380" y="418" font-size="14" font-weight="700" fill="#1A1A1A">카카오모빌리티</text>
+    <text x="380" y="435" font-size="13" fill="#4A4A4A">출발지 → 도착지 이동 시간</text>
+    <text x="368" y="464" font-size="13" fill="#6B6B6B">trip일 때만 이동 시간 조회</text>
+  </g>
+
+  <g>
+    <rect x="656" y="226" width="276" height="250" rx="14" fill="#FFFFFF" stroke="#3F5873" stroke-width="2"/>
+    <rect x="656" y="226" width="276" height="46" rx="14" fill="#3F5873"/>
+    <rect x="656" y="258" width="276" height="14" fill="#3F5873"/>
+    <text x="676" y="256" font-size="18" font-weight="700" fill="#FFFFFF">3. 판단</text>
+    <text x="676" y="302" font-size="15" fill="#1A1A1A">조건 확인</text>
+    <text x="676" y="324" font-size="14" fill="#4A4A4A">기온 &lt; 0, 강수확률 ≥ 50 등</text>
+    <text x="676" y="344" font-size="14" fill="#4A4A4A">미충족 → 10분 뒤 다시 확인</text>
+    <text x="676" y="376" font-size="15" fill="#1A1A1A">출발 권장 시각 계산</text>
+    <text x="676" y="398" font-size="14" fill="#4A4A4A">도착 − 이동 시간 − 여유 10분</text>
+    <text x="676" y="430" font-size="15" fill="#1A1A1A">발송 여부 결정</text>
+    <text x="676" y="452" font-size="14" fill="#4A4A4A">조건 충족 + 발송 시점 도달</text>
+  </g>
+
+  <g>
+    <rect x="964" y="226" width="276" height="250" rx="14" fill="#FFFFFF" stroke="#3F5873" stroke-width="2"/>
+    <rect x="964" y="226" width="276" height="46" rx="14" fill="#3F5873"/>
+    <rect x="964" y="258" width="276" height="14" fill="#3F5873"/>
+    <text x="984" y="256" font-size="18" font-weight="700" fill="#FFFFFF">4. 실행</text>
+    <text x="984" y="302" font-size="15" fill="#1A1A1A">알림 문구 생성 (LLM)</text>
+    <text x="984" y="324" font-size="14" fill="#4A4A4A">날씨, 이동 시간, 준비물 반영</text>
+    <text x="984" y="356" font-size="15" fill="#1A1A1A">카카오톡 발송</text>
+    <text x="984" y="378" font-size="14" fill="#4A4A4A">토큰 확인·갱신 후 나에게 보내기</text>
+    <text x="984" y="410" font-size="15" fill="#1A1A1A">결과 기록</text>
+    <text x="984" y="432" font-size="14" fill="#4A4A4A">1회: 발송 완료</text>
+    <text x="984" y="452" font-size="14" fill="#4A4A4A">반복: 다음 발송 시각으로 이동</text>
+  </g>
+
+  <!-- arrows between stages -->
+  <g stroke="#3F5873" stroke-width="2.5" fill="none">
+    <path d="M318 351 L344 351"/><path d="M336 343 L346 351 L336 359"/>
+    <path d="M626 351 L652 351"/><path d="M644 343 L654 351 L644 359"/>
+    <path d="M934 351 L960 351"/><path d="M952 343 L962 351 L952 359"/>
+  </g>
+
+  <!-- output -->
+  <path d="M1102 476 L1102 506" stroke="#3F5873" stroke-width="2.5"/>
+  <path d="M1094 498 L1102 510 L1110 498" fill="none" stroke="#3F5873" stroke-width="2.5"/>
+  <rect x="740" y="518" width="500" height="64" rx="12" fill="#FEE500"/>
+  <text x="760" y="546" font-size="15" font-weight="700" fill="#2B1B12">카카오톡 수신 예시</text>
+  <text x="760" y="568" font-size="14" fill="#2B1B12">"오늘 아침 기온이 영하 3도예요. 패딩 꼭 챙기세요. (AI가 작성한 메시지)"</text>
+
+  <!-- legend -->
+  <rect x="40" y="530" width="18" height="18" rx="4" fill="#3F5873"/>
+  <text x="66" y="545" font-size="14" fill="#4A4A4A">Agent 단계 (백엔드 + n8n)</text>
+  <rect x="300" y="530" width="18" height="18" rx="4" fill="#FFF7C2" stroke="#E0C800"/>
+  <text x="326" y="545" font-size="14" fill="#4A4A4A">Agent가 사용하는 외부 도구</text>
+  <text x="40" y="575" font-size="13" fill="#6B6B6B">LLM 실패 시 기본 문구로 대체 발송, 중복 발송은 트랜잭션으로 방지</text>
+</svg>
